@@ -1,0 +1,1415 @@
+---
+title: "Diff_Abundance"
+output: html_document
+date: "2024-06-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##### Differential Abundance #####
+```{r}
+###### Libraries #####
+#if (!require("BiocManager", quietly = TRUE))
+    #install.packages("BiocManager")
+
+#library(BiocManager)
+#BiocManager::install("metagenomeSeq")
+
+library(phyloseq)
+library(microbiome)
+library(vegan)
+library(tidyverse)
+library(ggplot2)
+library(minpack.lm)
+library(Hmisc)
+library(stats4)
+library(ggrepel)
+library(ANCOMBC)
+library(ggVennDiagram)
+library(VennDiagram)
+library(ggpubr)
+library(plyr)
+library(dplyr)
+
+
+# set options for scientific numbers to not be displayed
+options(scipen=10000) 
+
+# color blind pallet used throughout 
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ibm.cbb <- c("#648FFF", "#785EF0", "#DC267F", "#FE6100", "grey")
+tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "#AA4499", "#882255")
+extra.cbb <- c("#089", "#890", "#321", "#245", "#789", "#125", "#100", "#900", "#991", "#678912", "#199832", "#981734", "#299999", "#45611234", "#892393", "#183")
+```
+#### Read in RDS file #### 
+```{r}
+# using the non-normalized reads since spieceasi has its own normalizaiton methods
+
+bac_sperm <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Bacteria_spermosphere_nonnorm_2024-01-24.rds") ##Using Non-normalized Reads
+
+TaxaTable <- as.data.frame(bac_sperm@tax_table)
+
+```
+
+```{r}
+TimeSpermSteam <- bac_sperm %>%
+    subset_samples(Trt == "Steamed " & Type == "Spermosphere" & Time %in% c("Planting","17hrs"))
+
+badtaxa2 <- c("BOTU_316", "BOTU_3820")
+TimeSpermNonsteam <- bac_sperm %>%
+    subset_samples(Trt == "Non.Steamed" & Type == "Spermosphere" & Time %in% c("Planting","17hrs"))
+
+goodtaxa2 <- setdiff(taxa_names(TimeSpermNonsteam), badtaxa2)
+TimeSpermNonsteam2<- prune_taxa(goodtaxa2, TimeSpermNonsteam)
+
+TimeSoilSteam <- bac_sperm %>%
+    subset_samples(Trt == "Steamed " & Type == "Bulk.Soil" & Time %in% c("Planting","17hrs"))
+badtaxa4 <- c("BOTU_1600")
+
+TimeSoilNonsteam <- bac_sperm %>%
+    subset_samples(Trt == "Non.Steamed" & Type == "Bulk.Soil" & Time %in% c("Planting","17hrs"))
+
+goodtaxa4 <- setdiff(taxa_names(TimeSoilNonsteam), badtaxa4)
+TimeSoilNonsteam2<- prune_taxa(goodtaxa4, TimeSoilNonsteam)
+```
+#ANCOMBC Analysis; done on ASAX
+```{r}
+#This is Total Spermosphere Steamed
+output1 = ancombc2(data =TimeSpermSteam2, 
+                  fix_formula = "Time", rand_formula = NULL,
+                  p_adj_method = "holm", pseudo_sens = TRUE,
+                  prv_cut = 0.50, lib_cut = 2000, s0_perc = 0.05,
+                  group = "Time", struc_zero = TRUE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = TRUE, 
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL, 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+# This is total Spermosphere Nonsteamed
+output2 = ancombc2(data =TimeSpermNonsteam2, 
+                  fix_formula = "Time", rand_formula = NULL,
+                  p_adj_method = "holm", pseudo_sens = TRUE,
+                  prv_cut = 0.20, lib_cut = 2000, s0_perc = 0.05,
+                  group = "Time", struc_zero = TRUE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = TRUE, 
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL, 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+# This is Bulk Soil Steamed Control
+output3 = ancombc2(data =TimeSoilSteam, 
+                  fix_formula = "Time", rand_formula = NULL,
+                  p_adj_method = "holm", pseudo_sens = TRUE,
+                  prv_cut = 0.20, lib_cut = 2000, s0_perc = 0.05,
+                  group = "Time", struc_zero = TRUE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = TRUE, 
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL, 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+#This is Bulk Soil Nonsteamed Control
+output4 = ancombc2(data =TimeSoilNonsteam2, 
+                  fix_formula = "Time", rand_formula = NULL,
+                  p_adj_method = "holm", pseudo_sens = TRUE,
+                  prv_cut = 0.20, lib_cut = 2000, s0_perc = 0.05,
+                  group = "Time", struc_zero = TRUE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = TRUE, 
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL, 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+
+saveRDS(output1, "TimeSpermSteam.rds")
+saveRDS(output2, "TimeSpermNonsteam.rds")
+saveRDS(output3, "TimeSoilSteam.rds")
+saveRDS(output4, "TimeSoilNonsteam.rds")
+
+```
+#### diff abundance with ancom-BC2 - don't need to run. load the RDS file ####
+```{r}
+SpermosphereSteamed <- readRDS("Rmd/Prokaryote_Analyses/Differential_Abundance_RDS/TimeSpermSteam.rds")
+SpermosphereNonteamed <- readRDS("Rmd/Prokaryote_Analyses/Differential_Abundance_RDS/TimeSpermNonsteam.rds")
+SoilSteamed <- readRDS("Rmd/Prokaryote_Analyses/Differential_Abundance_RDS/TimeSoilSteam.rds")
+SoilNonsteamed <- readRDS("Rmd/Prokaryote_Analyses/Differential_Abundance_RDS/TimeSoilNonsteam.rds")
+
+
+SpermosphereSteamed.a <- left_join(SpermosphereSteamed$res,TaxaTable, by=c("taxon"="OTU"))
+SpermosphereSteamed.b <- SpermosphereSteamed.a %>%
+  mutate(lfc_Time17hours = lfc_TimePlanting*-1)
+
+SpermosphereNonteamed.a <- left_join(SpermosphereNonteamed$res,TaxaTable, by=c("taxon"="OTU"))
+SpermosphereNonteamed.b <- SpermosphereNonteamed.a %>%
+  mutate(lfc_Time17hours = lfc_TimePlanting*-1)
+
+Plot <- ggplot(SpermosphereSteamed.b, aes(x= lfc_Time17hours, y= -log10(q_TimePlanting), label=Genus, color = diff_TimePlanting)) + 
+  geom_point() +
+  geom_text()
+
+Plot2 <- ggplot(SpermosphereNonteamed.b, aes(x= lfc_Time17hours, y= -log10(q_TimePlanting), label=Genus, color = diff_TimePlanting)) + 
+  geom_point() +
+  geom_text_repel()
+
+SoilSteamed.a <- left_join(SoilSteamed$res,TaxaTable, by=c("taxon"="OTU"))
+SoilSteamed.b <- SoilSteamed.a %>%
+  mutate(lfc_Time17hours = lfc_TimePlanting*-1)
+
+SoilNonsteamed.a <- left_join(SoilNonsteamed$res,TaxaTable, by=c("taxon"="OTU"))
+SoilNonsteamed.b <- SoilNonsteamed.a %>%
+  mutate(lfc_Time17hours = lfc_TimePlanting*-1)
+
+Plot3 <- ggplot(SoilSteamed.b, aes(x= lfc_Time17hours, y= -log10(q_TimePlanting), label=Genus, color = diff_TimePlanting)) + 
+  geom_point() +
+  geom_text()
+
+Plot4 <- ggplot(SoilNonsteamed.b, aes(x= lfc_Time17hours, y= -log10(q_TimePlanting), label=Genus, color = diff_TimePlanting)) + 
+  geom_point() +
+  geom_text_repel()
+
+```
+#Seed vs Soil associated Microbes
+```{r}
+view(bac_sperm@sam_data)
+SeedEpiphytes <- bac_sperm %>%
+  subset_samples(Trt == "Soybean Epiphytes")
+
+
+```
+##Random Code##
+```{r}
+b <- bac_sperm %>%
+  psmelt() %>% #combining the Physeq Object
+  group_by(OTU, Trt, Time, Type) %>% #Grouping by different 
+  dplyr::summarize(sumabund = sum(Abundance)) #Has Zeros in It? (dpylr :: makes it use the command from that)
+
+b$PA <- ifelse(b$sumabund > 0, 1, 0)
+Soybean_Epiphyte.present <- b$OTU[b$PA == 1 & b$Trt == "Soybean Epiphytes"]
+BulkSoil_Planting_Steamed.present <- b$OTU[b$PA == 1 & b$Trt == "Steamed " & b$Time == "Planting" & b$Type == "Bulk.Soil"]
+b1 <- intersect(Soybean_Epiphyte.present, BulkSoil_Planting_Steamed.present)
+
+bac_sperm@sam_data$hoursafterplanting <- ifelse(bac_sperm@sam_data$Time == "Planting", "A", bac_sperm@sam_data$Time)
+bac_sperm@sam_data$hoursafterplanting2 <- ifelse(bac_sperm@sam_data$hoursafterplanting == "17hrs", "B", bac_sperm@sam_data$hoursafterplanting) ###Relabling the timepoints so that the reference group (A) is the reference group, otherwise (B) came first alphabetically
+
+c <- bac_sperm %>%
+      subset_taxa(OTU %in% b1) %>%
+      subset_samples(Type %in% c("Spermosphere", "Rhizosphere") & Trt %in% "Steamed ") %>%
+      subset_samples(Time %in% c("Planting", "17hrs", "V2")) %>%
+      #subset_samples(Time != "Planting") %>%
+      phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+view(c@sam_data)
+##SPACE AFTER STEAMED IN METADATA
+#### taxonomy table ####
+tax.bac <- c %>%
+  tax_table() %>%
+  as.data.frame()
+
+```
+
+
+```{r}
+TimeSpermSteam <- bac_sperm %>%
+    subset_samples(Type == "Spermosphere" & Time %in% c("Planting","17hrs"))
+                 
+TimeSpermSteam@sam_data
+
+bac_sperm@sam_data
+sessionInfo()
+
+set.seed(12345)
+output = ancombc2(data =TimeSpermSteam, 
+                  fix_formula = "Time", rand_formula = NULL,
+                  p_adj_method = "holm", pseudo_sens = TRUE,
+                  prv_cut = 0.10, lib_cut = 1000, s0_perc = 0.05,
+                  group = "Time", struc_zero = FALSE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = TRUE, 
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL, 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+TimeSoilSteam <- bac_sperm  %>%
+    subset_samples(Type == "Bulk.Soil" & Time %in% c("Planting","17hrs"))
+
+output2 = ancombc2(data =TimeSoilSteam, 
+                  fix_formula = "Trt + Time", rand_formula = NULL,
+                  p_adj_method = "holm", pseudo_sens = TRUE,
+                  prv_cut = 0.10, lib_cut = 1000, s0_perc = 0.05,
+                  group = "Time", struc_zero = FALSE, neg_lb = FALSE,
+                  alpha = 0.05, n_cl = 2, verbose = TRUE,
+                  global = FALSE, pairwise = TRUE, 
+                  dunnet = FALSE, trend = FALSE,
+                  iter_control = list(tol = 1e-5, max_iter = 20, 
+                                      verbose = FALSE),
+                  em_control = list(tol = 1e-5, max_iter = 100),
+                  lme_control = NULL, 
+                  mdfdr_control = list(fwer_ctrl_method = "holm", B = 100), 
+                  trend_control = NULL)
+
+
+set.seed(12345)
+out = ancombc2(data = TimeSpermSteam, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Trt + Time",
+              group = "Time",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(output, "trtancom.rds")
+saveRDS(output2, "trtsoilancom.rds")
+#Q is the adjusted p-value from holm method
+
+
+```
+
+# takes a while to finish -  maybe 30 min
+```{r}
+#Steamed Planting
+
+bac.Steamed.0 <- bac_sperm %>%
+  subset_samples(Time == "Planting" & Trt == "Steamed ")
+
+set.seed(12345)
+out = ancombc2(data = bac.Steamed.0, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Type.Factor",
+              group = "Type.Factor",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(out, "Steamed_0_ANCOM.rds")
+#Q is the adjusted p-value from holm method
+
+```
+
+```{r}
+#Steamed Planting
+
+bac.Steamed.17 <- bac_sperm %>%
+  subset_samples(Time == "17hrs" & Trt == "Steamed ")
+
+set.seed(12345)
+out = ancombc2(data = bac.Steamed.17, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Type.Factor",
+              group = "Type.Factor",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(out, "Steamed_17_ANCOM.rds")
+#Q is the adjusted p-value from holm method
+
+```
+
+```{r}
+#Steamed Planting
+
+bac.Steamed.V2 <- bac_sperm %>%
+  subset_samples(Time == "V2" & Trt == "Steamed ")
+
+set.seed(12345)
+out = ancombc2(data = bac.Steamed.V2, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Type.Factor",
+              group = "Type.Factor",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(out, "Steamed_V2_ANCOM.rds")
+#Q is the adjusted p-value from holm method
+
+```
+
+
+#NonSteamed Planting
+```{r}
+bac.NonSteamed.0 <- bac_sperm %>%
+  subset_samples(Time == "Planting" & Trt == "Non.Steamed")
+
+set.seed(12345)
+out = ancombc2(data = bac.NonSteamed.0, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Type.Factor",
+              group = "Type.Factor",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(out, "NonSteamed_0_ANCOM.rds")
+#Q is the adjusted p-value from holm method
+
+```
+
+```{r}
+
+bac.NonSteamed.17 <- bac_sperm %>%
+  subset_samples(Time == "17hrs" & Trt == "Non.Steamed")
+
+set.seed(12345)
+out = ancombc2(data = bac.NonSteamed.17, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Type.Factor",
+              group = "Type.Factor",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(out, "NonSteamed_17_ANCOM.rds")
+#Q is the adjusted p-value from holm method
+
+```
+
+```{r}
+#Steamed Planting
+
+bac.NonSteamed.V2 <- bac_sperm %>%
+  subset_samples(Time == "V2" & Trt == "Non.Steamed")
+
+set.seed(12345)
+out = ancombc2(data = bac.NonSteamed.V2, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Type.Factor",
+              group = "Type.Factor",
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE,
+              trend = TRUE,
+              trend_control = list(contrast = list(matrix(c(1, 0, -1, 1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(-1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE),
+                                                       matrix(c(1, 0, 1, -1),
+                                                              nrow = 2, 
+                                                              byrow = TRUE)),
+                                       node = list(0, 0, 1),
+                                       solver = "ECOS",
+                                       B = 1))
+
+#Matrix 1,0,-1,1 is the increasing trend, -1,0,1,-1 is the decreasing trend and 1,0,1,-1 is the umbrella analysis
+
+
+saveRDS(out, "NonSteamed_V2_ANCOM.rds")
+#Q is the adjusted p-value from holm method
+
+```
+
+### diff abundance test ###
+```{r}
+
+diff.abund <- readRDS("SteamedDiffAbund_Bac.rds") ##Using Non-normalized Reads
+
+diff.abund <- diff.abund$res
+diff.abund2 <- left_join(diff.abund, tax.bac, by = c("taxon" = "OTU"))
+diff.abund2$diff_abund <- interaction(diff.abund2$diff_hoursafterplanting2B, diff.abund2$diff_hoursafterplanting2V2)
+diff.abund2$time_diff_abund <- ifelse(diff.abund2$diff_abund == "TRUE.TRUE", "Difference Across Both Times", 
+                                      ifelse(diff.abund2$diff_abund == "TRUE.FALSE", "Spermosphere Only",
+                                             ifelse(diff.abund2$diff_abund == "FALSE.TRUE", "Rhizosphere Only",
+                                               ifelse(diff.abund2$diff_abund == "FALSE.FALSE", "No Difference", 
+                                                    "Not Different"))))
+view(diff.abund2)
+##BELOW IS OLD CODE
+diff.abund2$Crop_diff_abund <- ifelse(diff.abund2$diff_abund == "TRUE.TRUE.TRUE", "Difference Across All Times", 
+                                      ifelse(diff.abund2$diff_abund == "TRUE.TRUE.FALSE", "Spermosphere Only",
+                                             ifelse(diff.abund2$diff_abund == "TRUE.FALSE.FALSE", "Planting Only",
+                                                    ifelse(diff.abund2$diff_abund == "FALSE.FALSE.FALSE", "No Difference Across All Times",
+                                                           ifelse(diff.abund2$diff_abund == "FALSE.FALSE.TRUE", "Rhizosphere Only",
+                                                                  ifelse(diff.abund2$diff_abund == "FALSE.TRUE.FALSE", "17 Hours Only",
+                                                                         ifelse(diff.abund2$diff_abund == "FALSE.TRUE.TRUE", "17 Hours and Rhizosphere Only",
+                                                                                ifelse(diff.abund2$diff_abund == "TRUE.FALSE.TRUE", "Planting and Rhizosphere Only", "Not Different"))))))))
+
+saveRDS(diff.abund2, "SteamedDiffAbund2.rds")
+diff.abund2 <- readRDS("SteamedDiffAbund2.rds")
+```
+### supplemental table 2
+```{r}
+write.csv(diff.abund2, "diff_abund.csv")
+
+diff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference") %>%
+  group_by(Phylum) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2))
+  
+diff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference" & Phylum == "Firmicutes") %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq)
+
+diff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference" & Phylum == "Proteobacteria") %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq)
+
+diff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference") %>%
+  group_by(Crop_diff_abund) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq)
+
+diff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference" & Phylum == "Proteobacteria") %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq) %>%
+  print(n = 50)
+
+
+diff.abundant.composition <- diff.abund2 %>%
+  subset(time_diff_abund != "No Difference") %>%
+ggplot(aes(x = time_diff_abund, fill = Genus)) +
+  geom_bar() +
+  scale_fill_manual(values = c(cbbPalette, ibm.cbb, tol.cbb, extra.cbb)) +
+  theme_classic() + 
+  xlab("")+
+  ylab("Count") +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.text = element_text(face = "italic", size = 12),
+        legend.title = element_blank(),
+        legend.key.size = unit(0.3, 'cm')) 
+
+
+# TRUE.TRUE = Both time points 
+# TRUE.FALSE = Spermosphere only
+# FALSE.TRUE = Rhizosphere only
+```
+
+
+###PLOT FROM ABOVE###
+```{r}
+diff.abund.plot <- ggplot() + 
+  geom_point(data = subset(diff.abund2, diff_abund == "FALSE.FALSE"), aes(x = lfc_hoursafterplanting2B, y = lfc_hoursafterplanting2V2), color = "grey", shape = 21) +
+  geom_point(data = subset(diff.abund2,  diff_abund == "TRUE.FALSE"), aes(x = lfc_hoursafterplanting2B, y = lfc_hoursafterplanting2V2, fill = Genus, size = -log10(q_hoursafterplanting2B)), shape = 22, alpha = 0.7) +
+  geom_point(data = subset(diff.abund2,  diff_abund == "FALSE.TRUE"), aes(x = lfc_hoursafterplanting2B, y = lfc_hoursafterplanting2V2, fill = Genus, size = -log10(q_hoursafterplanting2V2)), shape = 23, alpha = 0.7) +
+  geom_point(data = subset(diff.abund2,  diff_abund == "TRUE.TRUE."), aes(x = lfc_hoursafterplanting2B, y = lfc_hoursafterplanting2V2, fill = Genus, size = -log10(q_hoursafterplanting2V2)), shape = 24, alpha = 0.7) +
+  theme_classic() + 
+  geom_hline(yintercept = 0, lty = "dotted") +
+  geom_vline(xintercept = 0, lty = "dotted") + 
+  scale_fill_manual(values = c(cbbPalette, ibm.cbb, tol.cbb, extra.cbb)) + 
+  xlab("log fold change Rhizosphere - Planting") + 
+  ylab("log fold change 17 hours - Planting") +
+  guides(size = "none") + 
+  theme(legend.position = "right") +
+  geom_text_repel(data = subset(diff.abund2,  diff_abund == "TRUE.TRUE"), 
+                  aes(label = Genus, x = lfc_hoursafterplanting2V2, y = lfc_hoursafterplanting2B), size = 3)
+ggarrange(diff.abund.plot, diff.abundant.composition)
+```
+
+
+##NONSTEAMED##
+```{r}
+b$PA <- ifelse(b$sumabund > 0, 1, 0)
+Soybean_Epiphyte.present <- b$OTU[b$PA == 1 & b$Trt == "Soybean Epiphytes"]
+BulkSoil_Planting_NonSteamed.present <- b$OTU[b$PA == 1 & b$Trt == "Non.Steamed" & b$Time == "Planting" & b$Type == "Bulk.Soil"]
+nb1 <- intersect(Soybean_Epiphyte.present, BulkSoil_Planting_NonSteamed.present)
+
+nc <- bac_sperm %>%
+      subset_taxa(OTU %in% nb1) %>%
+      subset_samples(Type %in% c("Spermosphere", "Rhizosphere") & Trt %in% "Non.Steamed") %>%
+      subset_samples(Time != "Planting") %>%
+      phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+#### taxonomy table ####
+ntax.bac <- nc %>%
+  tax_table() %>%
+  as.data.frame()
+```
+# takes a while to finish -  maybe 30 min
+```{r}
+out2 = ancombc2(data = nc, 
+              assay_name = NULL,
+              p_adj_method = "holm", 
+              prv_cut = 0.50, 
+              fix_formula = "Time",
+              group = NULL, 
+              struc_zero = TRUE, 
+              neg_lb = TRUE, 
+              alpha = 0.05, 
+              global = TRUE, 
+              n_cl = 1, verbose = TRUE)
+
+saveRDS(out2, "NonSteamedDiffAbund_bac.rds")
+#Q is the adjusted p-value from holm method
+
+```
+###### diff abundance test #####
+```{r}
+ndiff.abund <- out2$res
+ndiff.abund2 <- left_join(ndiff.abund, ntax.bac, by = c("taxon" = "OTU"))
+ndiff.abund2$diff_abund <- interaction(ndiff.abund2$diff_Time17hrs, ndiff.abund$diff_TimeV2)
+ndiff.abund2$Crop_diff_abund <- ifelse(ndiff.abund2$diff_abund == "TRUE.TRUE", "Difference Across Both Times", 
+                                      ifelse(ndiff.abund2$diff_abund == "TRUE.FALSE", "Spermosphere Only",
+                                             ifelse(ndiff.abund2$diff_abund == "FALSE, FALSE", "No Difference", 
+                                                    ifelse(ndiff.abund2$diff_abund == "FALSE, TRUE", "Rhizosphere Only", "Not Difference"))))
+
+saveRDS(ndiff.abund2, "NonSteamedDiffAbund2.rds")
+ndiff.abund2 <- readRDS("NonSteamedDiffAbund2.rds")
+```
+# supplemental table 2
+```{r}
+write.csv(diff.abund2, "ndiff_abund.csv")
+
+ndiff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference") %>%
+  group_by(Phylum) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2))
+  
+ndiff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference" & Phylum == "Firmicutes") %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq)
+
+ndiff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference" & Phylum == "Proteobacteria") %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq)
+
+ndiff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference") %>%
+  group_by(Crop_diff_abund) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq)
+
+ndiff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference" & Phylum == "Proteobacteria") %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = round(n / sum(n), 2)) %>%
+  arrange(-freq) %>%
+  print(n = 50)
+
+
+ndiff.aubndant.composition <- ndiff.abund2 %>%
+  subset(Crop_diff_abund != "No Difference") %>%
+ggplot(aes(x = Crop_diff_abund, fill = Genus)) +
+  geom_bar() +
+  scale_fill_manual(values = c(cbbPalette, ibm.cbb, tol.cbb)) +
+  theme_classic() + 
+  xlab("")+
+  ylab("Count") +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.text = element_text(face = "italic", size = 5),
+        legend.title = element_blank(),
+        legend.key.size = unit(0.3, 'cm')) 
+
+
+# TRUE.TRUE = cotton and soybean 
+# TRUE.FALSE = cotton only 
+# FALSE.TRUE = soybean only
+```
+
+
+###PLOT FROM ABOVE###
+```{r}
+ndiff.abund.plot <- ggplot() + 
+  geom_point(data = subset(ndiff.abund2, diff_abund == "FALSE.FALSE"), aes(x = lfc_CropSoybean, y = `lfc_CropCotton `), color = "grey", shape = 21) +
+  geom_point(data = subset(ndiff.abund2,  diff_abund == "TRUE.FALSE"), aes(x = lfc_CropSoybean, y = `lfc_CropCotton `, fill = Order, size = -log10(`q_CropCotton `)), shape = 22, alpha = 0.7) +
+  geom_point(data = subset(ndiff.abund2,  diff_abund == "FALSE.TRUE"), aes(x = lfc_CropSoybean, y = `lfc_CropCotton `, fill = Order, size = -log10(q_CropSoybean)), shape = 23, alpha = 0.7) +
+  geom_point(data = subset(ndiff.abund2,  diff_abund == "TRUE.TRUE."), aes(x = lfc_CropSoybean, y = `lfc_CropCotton `, fill = Order, size = -log10(q_CropSoybean)), shape = 24, alpha = 0.7) +
+  theme_classic() + 
+  geom_hline(yintercept = 0, lty = "dotted") +
+  geom_vline(xintercept = 0, lty = "dotted") + 
+  scale_fill_manual(values = c(cbbPalette, ibm.cbb, tol.cbb)) + 
+  xlab("log fold change soybean - soil") + 
+  ylab("log fold change cotton - soil") +
+  guides(size = FALSE) + 
+  theme(legend.position = "right")
+  #geom_text_repel(data = subset(diff.abund2,  diff_abund == "TRUE.TRUE"), 
+                  #aes(label = Label, x = lfc_CropSoybean, y = `lfc_CropCotton `, fill = Phylum), size = 3)
+ggarrange(ndiff.abund.plot, ndiff.aubndant.composition)
+```
+
+#LoadRDS from Ancombc2
+```{r}
+Nonsteamed.0 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Nonsteamed_0_Ancom.rds")
+Nonsteamed.17 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Nonsteamed_17_Ancom.rds") 
+Nonsteamed.V2 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Nonsteamed_V2_Ancom.rds")
+Nonsteamed.T1 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Nonsteamed_T1_Ancom.rds")
+Nonsteamed.T2 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Nonsteamed_T2_Ancom.rds")
+
+Steamed.0 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Steamed_0_Ancom.rds")
+Steamed.17 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Steamed_17_Ancom.rds")
+Steamed.V2 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Steamed_V2_Ancom.rds")
+Steamed.T1 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Steamed_T1_Ancom.rds")
+Steamed.T2 <- readRDS("2024-01-24_SpermosphereSteaming_Bacteria/RDS/Steamed_T2_Ancom.rds")
+
+
+
+
+```
+#Ancombc Analysis in respects with sample type over time.
+```{r}
+
+
+Nonsteamed.0a <- left_join(Nonsteamed.0$res,TaxaTable, by=c("taxon"="OTU"))
+Nonsteamed.17a <- left_join(Nonsteamed.17$res,TaxaTable, by=c("taxon"="OTU"))
+Nonsteamed.V2a <- left_join(Nonsteamed.V2$res,TaxaTable, by=c("taxon"="OTU"))
+Steamed.0a <- left_join(Steamed.0$res,TaxaTable, by=c("taxon"="OTU"))
+Steamed.17a <- left_join(Steamed.17$res,TaxaTable, by=c("taxon"="OTU"))
+Steamed.V2a <- left_join(Steamed.V2$res,TaxaTable, by=c("taxon"="OTU"))
+
+
+
+
+Plot <- ggplot(Nonsteamed.0a, aes(x= lfc_Type.FactorSpermosphere.Planting, y= -log10(q_Type.FactorSpermosphere.Planting), label=Genus, color = diff_Type.FactorSpermosphere.Planting)) + 
+  geom_point() +
+  geom_text()
+
+Plot2 <- ggplot(Nonsteamed.17a, aes(x= lfc_Type.FactorSpermosphere.17hrs, y= -log10(q_Type.FactorSpermosphere.17hrs), label=Genus, color = diff_Type.FactorSpermosphere.17hrs)) + 
+  geom_point() +
+  geom_text_repel()
+
+Plot3 <- ggplot(Nonsteamed.V2a, aes(x= lfc_Type.FactorRhizosphere.V2, y= -log10(q_Type.FactorRhizosphere.V2), label=Genus, color = diff_Type.FactorRhizosphere.V2)) + 
+  geom_point() +
+  geom_text_repel()
+
+CombinedPlot <- ggpubr::ggarrange(Plot, Plot2, Plot3,
+                                       labels = "auto",
+                                       nrow = 1, ncol = 3, common.legend = T)
+
+
+Plot4 <- ggplot(Steamed.0a, aes(x= lfc_Type.FactorSpermosphere.Planting, y= -log10(p_Type.FactorSpermosphere.Planting), label=Genus, color = diff_Type.FactorSpermosphere.Planting)) + 
+  geom_point() +
+  geom_text()
+
+Plot5 <- ggplot(Steamed.17a, aes(x= lfc_Type.FactorSpermosphere.17hrs, y= -log10(p_Type.FactorSpermosphere.17hrs), label=Genus, color = diff_Type.FactorSpermosphere.17hrs)) + 
+  geom_point() +
+  geom_text_repel()
+
+Plot6 <- ggplot(Steamed.V2a, aes(x= lfc_Type.FactorRhizosphere.V2, y= -log10(p_Type.FactorRhizosphere.V2), label=Genus, color = diff_Type.FactorRhizosphere.V2)) + 
+  geom_point() +
+  geom_text_repel()
+
+CombinedPlot2 <- ggpubr::ggarrange(Plot4, Plot5, Plot6,
+                                       labels = "auto",
+                                       nrow = 1, ncol = 3, common.legend = T)
+
+
+
+
+
+
+
+```
+#Ancombc analysis in respect to time only in seed related samples.
+```{r}
+
+Nonsteamed.T1a <- left_join(Nonsteamed.T1$res,TaxaTable, by=c("taxon"="OTU"))
+Nonsteamed.T2a <- left_join(Nonsteamed.T2$res,TaxaTable, by=c("taxon"="OTU"))
+Steamed.T1a <- left_join(Steamed.T1$res,TaxaTable, by=c("taxon"="OTU"))
+Steamed.T2a <- left_join(Steamed.T2$res,TaxaTable, by=c("taxon"="OTU"))
+
+Plot7 <- ggplot(Nonsteamed.T1a, aes(x= lfc_Type.FactorSpermosphere.Planting, y= -log10(p_Type.FactorSpermosphere.Planting), label=Genus, color = diff_Type.FactorSpermosphere.Planting)) + 
+  geom_point() +
+  geom_text() +
+  scale_fill_manual(values=cbbPalette)
+
+Plot8 <- ggplot(Nonsteamed.T2a, aes(x= lfc_Type.FactorRhizosphere.V2, y= -log10(p_Type.FactorRhizosphere.V2), label=Genus, color = diff_Type.FactorRhizosphere.V2)) + 
+  geom_point() +
+  geom_text_repel() +
+  scale_fill_manual(values=cbbPalette)
+
+Plot9 <- ggplot(Steamed.T1a, aes(x= lfc_Type.FactorSpermosphere.Planting, y= -log10(p_Type.FactorSpermosphere.Planting), label=Genus, color = diff_Type.FactorSpermosphere.Planting)) + 
+  geom_point() +
+  geom_text() +
+  scale_fill_manual(values=cbbPalette)
+
+Plot10 <- ggplot(Steamed.T2a, aes(x= lfc_Type.FactorRhizosphere.V2, y= -log10(p_Type.FactorRhizosphere.V2), label=Genus, color = diff_Type.FactorRhizosphere.V2)) + 
+  geom_point() +
+  geom_text_repel() +
+  scale_fill_manual(values=cbbPalette)
+
+
+
+CombinedPlot3 <- ggpubr::ggarrange(Plot7, Plot8, Plot9, Plot10,
+                                       labels = "auto",
+                                       nrow = 2, ncol = 2, common.legend = T)
+
+
+
+```
+#Comparing Both Plots Above
+#Looking at Time intervals and what taxa changed across time
+```{r}
+
+Nonsteamed.T1b <- as.data.frame(Nonsteamed.T1a)
+
+Nonsteamedintersectpre<- Nonsteamed.T1$res %>%
+  subset(passed_ss_Type.FactorSpermosphere.Planting == "TRUE") %>%
+  subset(p_Type.FactorSpermosphere.Planting < 0.01) %>%
+  subset(`passed_ss_(Intercept)` == "TRUE") %>%
+  subset(lfc_Type.FactorSpermosphere.Planting < 0)
+  
+Nonsteamedintersectpre$Treatment <- "Nonsteamed"
+Nonsteamedintersectpre$Interval <- "T1"
+
+Nonsteamedintersectpre$MicrobialDynamic <- ifelse(Nonsteamedintersectpre$lfc_Type.FactorSpermosphere.Planting < 0, "Enriched in the Spermosphere")
+
+NonsteamedT1Plot <- ggplot(Nonsteamedintersectpre, aes(x= taxon, y=lfc_Type.FactorSpermosphere.Planting, color = MicrobialDynamic)) + 
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=cbbPalette) +
+  coord_flip()
+
+Nonsteamedintersectpre2<- Nonsteamed.T2$res %>%
+  subset(passed_ss_Type.FactorRhizosphere.V2 == "TRUE") %>%
+  subset(`passed_ss_(Intercept)` == "TRUE") %>%
+  subset(p_Type.FactorRhizosphere.V2 < 0.01) %>%
+  subset(lfc_Type.FactorRhizosphere.V2 > 0)
+
+Nonsteamedintersectpre2$Treatment <- "Nonsteamed"
+Nonsteamedintersectpre2$Interval <- "T2"
+Nonsteamedintersectpre2$MicrobialDynamic <- ifelse(Nonsteamedintersectpre2$lfc_Type.FactorRhizosphere.V2 > 0, "Enriched in the Rhizosphere")
+
+NonsteamedT2Plot <- ggplot(Nonsteamedintersectpre2, aes(x= taxon, y=lfc_Type.FactorRhizosphere.V2, color = MicrobialDynamic)) + 
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=cbbPalette) +
+  coord_flip()
+
+Steamedintersectpre<- Steamed.T1$res %>%
+  subset(passed_ss_Type.FactorSpermosphere.Planting == "TRUE") %>%
+  subset(p_Type.FactorSpermosphere.Planting < 0.01) %>%
+  subset(`passed_ss_(Intercept)` == "TRUE") %>%
+  subset(lfc_Type.FactorSpermosphere.Planting < 0)
+  
+Steamedintersectpre$Treatment <- "Steamed"
+Steamedintersectpre$Interval <- "T1"
+Steamedintersectpre$MicrobialDynamic <- ifelse(Steamedintersectpre$lfc_Type.FactorSpermosphere.Planting < 0, "Enriched in the Spermosphere")
+
+SteamedT1Plot <- ggplot(Steamedintersectpre, aes(x= taxon, y=lfc_Type.FactorSpermosphere.Planting, color = MicrobialDynamic)) + 
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=cbbPalette) +
+  coord_flip()
+
+Steamedintersectpre2<- Steamed.T2$res %>%
+  subset(passed_ss_Type.FactorRhizosphere.V2 == "TRUE") %>%
+  subset(p_Type.FactorRhizosphere.V2 < 0.01) %>%
+  subset(`passed_ss_(Intercept)` == "TRUE") %>%
+  subset(lfc_Type.FactorRhizosphere.V2 > 0)
+
+Steamedintersectpre2$Treatment <- "Steamed"
+Steamedintersectpre2$Interval <- "T2"
+Steamedintersectpre2$MicrobialDynamic <- ifelse(Steamedintersectpre2$lfc_Type.FactorRhizosphere.V2 >0, "Enriched in the Rhizosphere")
+
+SteamedT2Plot <- ggplot(Steamedintersectpre2, aes(x= taxon, y=lfc_Type.FactorRhizosphere.V2, color = MicrobialDynamic)) + 
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=cbbPalette) +
+  coord_flip()
+
+DiffinTime <- bind_rows(Steamedintersectpre, Steamedintersectpre2)
+DiffinTime2 <- bind_rows(Nonsteamedintersectpre, Nonsteamedintersectpre2)
+DiffinTimeTotal <- bind_rows(DiffinTime, DiffinTime2)
+
+TaxaTable <- as.data.frame(bac_sperm@tax_table) 
+
+DiffinTimeTotal2 <- left_join(DiffinTimeTotal, TaxaTable, by = c("taxon"= "OTU"))
+
+DifferenceofTime <- ggplot(DiffinTimeTotal2, aes(x= Interval, fill = Phylum)) + 
+  facet_wrap(~Treatment*Interval) +
+  geom_bar() +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb))
+
+DifferenceofI <- ggplot(DiffinTimeTotal2, aes(x= MicrobialDynamic, fill = Genus)) + 
+  facet_wrap(~Treatment) +
+  geom_bar() +
+  #theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+
+```
+
+#Presence Absence Analysis Nonsteamed
+```{r}
+NonsteamedTotalPA <- left_join(Nonsteamed.T1$zero_ind, Nonsteamed.T2$zero_ind, by = "taxon")
+
+
+
+
+nImmigrationSpermosphere <- NonsteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == FALSE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == TRUE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== TRUE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== TRUE)
+#Making sure that the first timepoint had an absence, and the last one had true, it didnt matter if the middle was true or false. No death here should occur.
+#0 1 1
+
+nImmigrationSpermosphere$Presence <- "Stochastic Event" 
+
+nImmigrationRhizosphere <- NonsteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == FALSE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == TRUE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== FALSE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== FALSE)
+
+#0 0 1 
+nImmigrationRhizosphere$Presence <- "Stochastic Event"
+ 
+nImmigrationandMortality <- NonsteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == TRUE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == TRUE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== FALSE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== FALSE)
+
+#Making sure that the first and last time point had a value of true and the middle timepoint had a death
+# 1 0 1
+nImmigrationandMortality$Presence <- "Stochastic Event"
+
+nImmigrationandMortality2 <- NonsteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == FALSE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == FALSE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== TRUE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== TRUE)
+
+#Making sure the middle time point only had a true
+#0 1 0
+nImmigrationandMortality2$Presence <- "Stochastic Event"
+
+nMortalitySpermosphere <- NonsteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == TRUE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == FALSE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== FALSE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== FALSE)
+
+#making sure that a death occured only at the spermosphere level
+# 1 0 0
+nMortalitySpermosphere$Presence <- "Found"
+
+
+nMortalityRhizosphere <- NonsteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == TRUE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == FALSE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== TRUE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== TRUE)
+#Making sure that a death occured only at the rhizosphere
+# 1 1 0
+nMortalityRhizosphere$Presence <- "Not Found"
+
+
+nMortalitySpermosphere$MicrobialDynamic <- "Found at At Planting Only (100)"
+nMortalityRhizosphere$MicrobialDynamic <- "Not Found in Rhizosphere Only (110)"
+nImmigrationandMortality$MicrobialDynamic <- "Not Found at Spermosphere Only (101)"
+nImmigrationandMortality2$MicrobialDynamic <- "Found at Spermosphere Only (010)"
+nImmigrationSpermosphere$MicrobialDynamic <- "Not Found at Planting (011)"
+nImmigrationRhizosphere$MicrobialDynamic <- "Found at Rhizosphere Only (001)"
+
+a <- bind_rows(nMortalitySpermosphere, nMortalityRhizosphere)
+b <- bind_rows(a, nImmigrationandMortality)
+c <- bind_rows(b, nImmigrationandMortality2)
+e <- bind_rows(c, nImmigrationSpermosphere)
+d <- bind_rows(e, nImmigrationRhizosphere)
+
+d$Treatment <- "Nonsteamed"
+
+
+```
+
+#Presence Absence Analysis Steamed
+```{r}
+SteamedTotalPA <- left_join(Steamed.T1$zero_ind, Steamed.T2$zero_ind, by = "taxon")
+
+sImmigrationSpermosphere <- SteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == FALSE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == TRUE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== TRUE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== TRUE)
+#Making sure that the first timepoint had an absence, and the last one had true, it didnt matter if the middle was true or false. No death here should occur.
+#0 1 1
+sImmigrationSpermosphere$Presence <- "Stochastic Event"
+
+sImmigrationRhizosphere <- SteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == FALSE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == TRUE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== FALSE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== FALSE)
+
+#0 0 1 
+sImmigrationRhizosphere$Presence <- "Stochastic Event"
+
+sImmigrationandMortality <- SteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == TRUE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == TRUE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== FALSE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== FALSE)
+
+#Making sure that the first and last time point had a value of true and the middle timepoint had a death
+# 1 0 1
+sImmigrationandMortality$Presence <- "Stochastic Event"
+
+sImmigrationandMortality2 <- SteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == FALSE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == FALSE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== TRUE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== TRUE)
+
+#Making sure the middle time point only had a true
+#0 1 0
+
+sImmigrationandMortality2$Presence <- "Stochastic Event"
+
+sMortalitySpermosphere <- SteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == TRUE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == FALSE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== FALSE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== FALSE)
+
+#making sure that a death occured only at the spermosphere level
+# 1 0 0
+sMortalitySpermosphere$Presence <- "Found"
+
+sMortalityRhizosphere <- SteamedTotalPA %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.Planting)` == TRUE) %>%
+  subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == FALSE) %>%
+  #subset(`structural_zero (Type.Factor = Rhizosphere.V2)` == "NA") %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).x`== TRUE) %>%
+  subset(`structural_zero (Type.Factor = Spermosphere.17hrs).y`== TRUE)
+#Making sure that a death occured only at the rhizosphere
+# 1 1 0
+sMortalityRhizosphere$Presence <- "Not Found"
+
+
+sMortalitySpermosphere$MicrobialDynamic <- "Found at At Planting Only (100)"
+sMortalityRhizosphere$MicrobialDynamic <- "Not Found in Rhizosphere Only (110)"
+sImmigrationandMortality$MicrobialDynamic <- "Not Found at Spermosphere Only (101)"
+sImmigrationandMortality2$MicrobialDynamic <- "Found at Spermosphere Only (010)"
+sImmigrationSpermosphere$MicrobialDynamic <- "Not Found at Planting (011)"
+sImmigrationRhizosphere$MicrobialDynamic <- "Found at Rhizosphere Only (001)"
+
+
+f <- bind_rows(sMortalitySpermosphere, sMortalityRhizosphere)
+g <- bind_rows(f, sImmigrationandMortality)
+h <- bind_rows(g, sImmigrationandMortality2)
+j <- bind_rows(h, sImmigrationSpermosphere)
+i <- bind_rows(j, sImmigrationRhizosphere)
+
+i$Treatment <- "Steamed"
+```
+
+#Combined Microbial Dynamic Analysis
+```{r}
+
+PAMicrobialDynamics <- bind_rows(d,i)
+
+#MicrobialDynamics<- bind_rows(DiffinTimeTotal, PAMicrobialDynamics)
+
+MicrobialDynamics2 <- left_join(PAMicrobialDynamics, TaxaTable, by = c("taxon"= "OTU"))
+
+MicrobialDynamicsPlot <- ggplot(MicrobialDynamics2, aes(x= MicrobialDynamic, fill = Genus)) + 
+  facet_wrap(~Treatment) +
+  geom_bar(show.legend = FALSE) +
+  ylab("Number of OTU's") +
+  xlab("Microbial Dynamic") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12))# +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+
+MicrobialDynamicsPlot <- ggplot(MicrobialDynamics2, aes(x= MicrobialDynamic, fill = Phylum)) + 
+  facet_wrap(~Treatment) +
+  geom_bar() +
+  ylab("Number of OTU's") +
+  xlab("Microbial Dynamic") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+```
+
+#Transmission/Microbial Dynamic Analysis with Prevlance Cuts
+```{r}
+###Tranmission PA/Microbial Dynamic Analysis
+b1 <- bac_sperm %>%
+  phyloseq_filter_prevalence(prev.trh = 0.1, abund.trh = NULL, threshold_condition = "OR",abund.type = "total") %>%
+  psmelt() %>% #combining the Physeq Object
+  dplyr::group_by(OTU, Trt, Time, Type) %>% #Grouping by different #Make sure Dplyr package
+  dplyr::summarize(sumabund = sum(Abundance)) #Has Zeros in It? #Make sure the package dplyr is loaded last or specifiy it
+#install.packages("remotes")
+#remotes::install_github("vmikk/metagMisc")
+#library(metagMisc)
+
+b1$PA <- ifelse(b1$sumabund > 0, 1, 0)
+  
+PrevOTUs <- b1$OTU[b1$PA == 1]
+
+Soybean_Epiphyte.present <- b1$OTU[b1$PA == 1 & b1$Trt == "Soybean Epiphytes"]
+BulkSoil_Planting_Steamed.present <- b1$OTU[b1$PA == 1 & b1$Time == "Planting" & b1$Type == "Bulk.Soil"]
+BSE_Only<- setdiff(Soybean_Epiphyte.present, BulkSoil_Planting_Steamed.present)
+
+Transmission <- MicrobialDynamics2 %>%
+    subset(taxon %in% Soybean_Epiphyte.present)
+
+Transmission2 <- MicrobialDynamics2 %>%
+    subset(taxon %in% BSE_Only)
+
+MicrobialDynamics3 <- MicrobialDynamics2 %>%
+    subset(taxon %in% PrevOTUs)
+
+TransmissionPlot <- ggplot(Transmission, aes(x= MicrobialDynamic, fill = Presence)) + 
+  facet_wrap(~Treatment) +
+  geom_bar() +
+  ylab("Number of OTU's") +
+  xlab("Microbial Dynamic") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+
+TransmissionPlot2 <- ggplot(Transmission2, aes(x= MicrobialDynamic, fill = Presence)) + 
+  facet_wrap(~Treatment) +
+  geom_bar() +
+  ylab("Number of OTU's") +
+  xlab("Microbial Dynamic") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+
+
+PrevlanceCutPlot <- ggplot(MicrobialDynamics3, aes(x= MicrobialDynamic, fill = Presence)) + 
+  facet_wrap(~Treatment) +
+  geom_bar() +
+  ylab("Number of OTU's") +
+  xlab("Microbial Dynamic") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)) +
+  scale_fill_manual(values= c(extra.cbb,ibm.cbb, cbbPalette, tol.cbb))
+
+Transmission$Transmission <- "Microbes Found on Seed"
+MicrobialDynamics3$Transmission <- "Total Microbial Pool"
+
+ConjoinedPATransmission <- rbind(Transmission, MicrobialDynamics3)
+
+CombinedTransmissionPlot <- ggplot(ConjoinedPATransmission, aes(x= MicrobialDynamic, fill = Presence)) + 
+  facet_wrap(~Treatment+Transmission) +
+  geom_bar() +
+  ylab("Number of OTU's") +
+  xlab("Microbial Dynamic") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+
+###DIfferential Abundance and Transmission Analysis
+DiffAbundTransmission2 <- DiffinTimeTotal2 %>%
+    subset(taxon %in% Soybean_Epiphyte.present)
+DiffAbundTransmission2$Transmission <- "Microbe Found on A Seed"
+DiffinTimeTotal2$Transmission <- "Total Microbial Pool"
+
+DiffAbundTransmissionFig<- rbind(DiffinTimeTotal2, DiffAbundTransmission2)
+
+DifferenceofITransmissionPlot <- ggplot(DiffAbundTransmissionFig, aes(x= MicrobialDynamic, fill = Genus)) + 
+  facet_wrap(~Treatment+Transmission) +
+  geom_bar() +
+  #theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 10)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, extra.cbb, tol.cbb))
+
+DiffAbundCombined <- ggpubr::ggarrange(DifferenceofI,
+                                       DifferenceofITransmissionPlot,
+                                       labels = "auto",
+                                       nrow = 2, ncol = 1, common.legend = FALSE, legend = "right")
+
+```
+```{r}
+NonsteamedT1OTU <- Nonsteamedintersectpre$taxon
+NonsteamedT2OTU <- Nonsteamedintersectpre2$taxon
+##Differing significantly across both time changes
+nonsteameddiffacrossbothtimes <- intersect(NonsteamedT1OTU, NonsteamedT2OTU)
+###2 OTU's are significant "BOTU_345" "BOTU_18" 
+
+SteamedT1OTU <- Steamedintersectpre$taxon
+SteamedT2OTU <- Steamedintersectpre2$taxon
+
+##Differing significantly across both time changes
+steameddiffacrossbothtimes <- intersect(SteamedT1OTU, SteamedT2OTU)
+###None of them are significant because of the strict Diff of Ancombc
+CombinedPlot3 <- ggpubr::ggarrange(SteamedT1OTU, SteamedT2OTU, NonsteamedT1OTU, NonsteamedT2OTU,
+                                       labels = "auto",
+                                       nrow = 2, ncol = 2, common.legend = T)
+
+```
+
+
+
+
+
+
+
+### Subsetting Samples ###
+###Grouping of samples and Abundancies
+```{r}
+b <- bac_sperm %>%
+  psmelt() %>% #combining the Physeq Object
+  dplyr::group_by(OTU, Trt, Time, Type) %>% #Grouping by different #Make sure Dplyr package
+  dplyr::summarize(sumabund = sum(Abundance)) #Has Zeros in It? #Make sure the package dplyr is loaded last or specifiy it
+
+b$PA <- ifelse(b$sumabund > 0, 1, 0)
+```
+###Forming Presence absence based on Steamed Samples
+```{r}
+Soybean_Epiphyte.present <- b$OTU[b$PA == 1 & b$Trt == "Soybean Epiphytes"]
+BulkSoil_Planting_Steamed.present <- b$OTU[b$PA == 1 & b$Trt == "Steamed " & b$Time == "Planting" & b$Type == "Bulk.Soil"]
+
+Spermosphere_Planting_Steamed.present <- b$OTU[b$PA == 1 & b$Trt == "Steamed " & b$Time == "Planting" & b$Type == "Spermosphere"]
+Spermosphere_17hrs_Steamed.present <- b$OTU[b$PA == 1 & b$Trt == "Steamed " & b$Time == "17hrs" & b$Type == "Spermosphere"]
+Spermosphere_Rhizosphere_Steamed.present <- b$OTU[b$PA == 1 & b$Trt == "Steamed " & b$Time == "V2" & b$Type == "Rhizosphere"]
+
+
+bS_Eonly <- setdiff(Soybean_Epiphyte.present, BulkSoil_Planting_Steamed.present)
+b1 <- intersect(bS_Eonly, Spermosphere_Planting_Steamed.present)
+b2 <- intersect(b1, Spermosphere_17hrs_Steamed.present)
+b3 <- intersect(b2, Spermosphere_Rhizosphere_Steamed.present)
+
+T1B1 <- intersect(b1, SteamedT1OTU)
+#None
+
+```
+###Forming Presence absence based on Nonsteamed samples
+```{r}
+Soybean_Epiphyte.present <- b$OTU[b$PA == 1 & b$Trt == "Soybean Epiphytes"]
+BulkSoil_Planting_NonSteamed.present <- b$OTU[b$PA == 1 & b$Trt == "Non.Steamed" & b$Time == "Planting" & b$Type == "Bulk.Soil"]
+
+Spermosphere_Planting_NonSteamed.present <- b$OTU[b$PA == 1 & b$Trt == "Non.Steamed" & b$Time == "Planting" & b$Type == "Spermosphere"]
+Spermosphere_17hrs_NonSteamed.present <- b$OTU[b$PA == 1 & b$Trt == "Non.Steamed" & b$Time == "17hrs" & b$Type == "Spermosphere"]
+Spermosphere_Rhizosphere_NonSteamed.present <- b$OTU[b$PA == 1 & b$Trt == "Non.Steamed" & b$Time == "V2" & b$Type == "Rhizosphere"]
+
+nbS_Eonly <- setdiff(Soybean_Epiphyte.present, BulkSoil_Planting_NonSteamed.present)
+nb1 <- intersect(nbS_Eonly, Spermosphere_Planting_NonSteamed.present)
+nb2 <- intersect(nb1, Spermosphere_17hrs_NonSteamed.present)
+nb3 <- intersect(nb2, Spermosphere_Rhizosphere_NonSteamed.present)
+
+T1NB1 <- intersect(nb2,NonsteamedT1OTU)
+#none the same
+T1NB2 <- intersect(nb3, NonsteamedT2OTU)
+#none the same
+T1NB1 <- intersect(nbS_Eonly,NonsteamedT1OTU)
+#none the same
+T1NB2 <- intersect(nbS_Eonly,NonsteamedT2OTU)
+
+```
+###Correlating OTU to taxa
+```{r}
+nonsteamedtaxa <- bac_sperm@tax_table %>%
+      data.frame() %>%
+      subset(OTU %in% nb3)
+steamedtaxa <- bac_sperm@tax_table %>%
+      data.frame() %>%
+      subset(OTU %in% b3)
+
+```
+```{r}
+
+Nonsteamed.T1b <- as.data.frame(Nonsteamed.T1a)
+
+Nonsteamedintersectpre <- Nonsteamed.T1$res %>%
+  subset(diff_Type.FactorSpermosphere.Planting == "TRUE")
+Nonsteamedintersectpre2 <- Nonsteamed.T2$res %>%
+  subset(diff_Type.FactorRhizosphere.V2 == "TRUE")
+
+NonsteamedT1OTU <- Nonsteamedintersectpre$taxon
+NonsteamedT2OTU <- Nonsteamedintersectpre2$taxon
+##Differing significantly across both time changes
+nonsteameddiffacrossbothtimes <- intersect(NonsteamedT1OTU, NonsteamedT2OTU)
+###2 OTU's are significant "BOTU_345" "BOTU_18" 
+
+Steamedintersectpre <- Steamed.T1$res %>%
+  subset(diff_Type.FactorSpermosphere.Planting == "TRUE")
+
+Steamedintersectpre2 <- Steamed.T2$res %>%
+  subset(diff_Type.FactorRhizosphere.V2 == "TRUE")
+
+SteamedT1OTU <- Steamedintersectpre$taxon
+SteamedT2OTU <- Steamedintersectpre2$taxon
+
+##Differing significantly across both time changes
+steameddiffacrossbothtimes <- intersect(SteamedT1OTU, SteamedT2OTU)
+###None of them are significant because of the strict Diff of Ancombc
+```
+### Subsetting Samples ###
+###Grouping of samples and Abundancies
+```{r}
+
+
+
+bS_Eonly <- setdiff(Soybean_Epiphyte.present, BulkSoil_Planting_Steamed.present)
+b1 <- intersect(bS_Eonly, Spermosphere_Planting_Steamed.present)
+b2 <- intersect(b1, Spermosphere_17hrs_Steamed.present)
+b3 <- intersect(b2, Spermosphere_Rhizosphere_Steamed.present)
+
+T1B1 <- intersect(b1, SteamedT1OTU)
+#None
+
+
+
+
+#Label the amount of OTU's across donuts
+
+
+
+
+
+```
+
+
+
+
+
+
