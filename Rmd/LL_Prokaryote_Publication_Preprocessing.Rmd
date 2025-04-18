@@ -37,13 +37,13 @@ tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "
 # Read in data #
 ```{r}
 # Metadata #
-samp_dat_bac <- read.csv("C:/Users/emrog/Documents/RProjects/Spermosphere_Across_Different_Soils/Spermosphere_16S_Metadata.csv", na.strings = "na")
+samp_dat_bac <- read.csv("Spermosphere_16S_Metadata.csv", na.strings = "na")
 
 rownames(samp_dat_bac) <- samp_dat_bac$Sample_ID #row names must match OTU table headers
 SAMP.bac <- phyloseq::sample_data(samp_dat_bac)
 
 # OTU table # remove hash and space in OTU_ID header manually
-otu_bac <- read.csv("C:/Users/emrog/Documents/RProjects/Spermosphere_Across_Different_Soils/otu_table_16S_Bacteria.txt", sep = "\t") #txt file is tab separated
+otu_bac <- read.csv("otu_table_16S_Bacteria.txt", sep = "\t") #txt file is tab separated
 colnames(otu_bac) <- sub("_.*", "", colnames(otu_bac)) #removing _S*_merged
 rownames(otu_bac) <- otu_bac$OTU
 otu_bac <- otu_bac[,-1]
@@ -52,19 +52,26 @@ OTU.bac <- phyloseq::otu_table(otu_bac, taxa_are_rows = TRUE)
 any(is.na(otu_bac)) # no NA in the OTU table
 
 # Taxonomy #
-taxonomy.bac <- read.csv("C:/Users/emrog/Documents/RProjects/Spermosphere_Across_Different_Soils/16s_taxonomy_SINTAX.txt", sep = "")
+taxonomy.bac <- read.csv("16s_taxonomy_SINTAX.txt", sep = "")
 rownames(taxonomy.bac) <- taxonomy.bac$OTU
 TAX.bac <- phyloseq::tax_table(as.matrix(taxonomy.bac))
 
 # Fasta # fasta is too large so not running for now
-#FASTA.bac <- readDNAStringSet("C:/Users/emrog/Documents/RProjects/Spermosphere_Across_Different_Soils/otus.fasta", format="fasta", seek.first.rec=TRUE, use.names=TRUE)
+FASTA.bac <- readDNAStringSet("otus.fasta", format="fasta", seek.first.rec=TRUE, use.names=TRUE)
 
 # Phylogentic tree #
-tree <- phyloseq::read_tree("C:/Users/emrog/Documents/RProjects/Spermosphere_Across_Different_Soils/otu_tree.tre")
+tree <- phyloseq::read_tree("otu_tree.tre")
 
 ###### Create Initial Phyloseq object #####
 # Merge reads into Phyloseq object #
-bac.unedited <- phyloseq::phyloseq(OTU.bac, TAX.bac, SAMP.bac, tree)
+bac.unedited <- phyloseq::phyloseq(OTU.bac, TAX.bac, SAMP.bac, FASTA.bac, tree)
+#save(bac.unedited, file = "physeq_bac_full.RData")
+
+# Remove singletons #
+bac.unedited <- filter_taxa(bac.unedited, function (x) {sum(x > 0) >1}, prune=TRUE)
+#save objects to reduce memory?
+#save(bac.unedited, file = "physeq_bac.RData")
+load("physeq_bac.RData")
 ```
 
 # Decontaminate ##
@@ -81,8 +88,8 @@ badTaxa <- rownames(contamdf.prev[contamdf.prev$contaminant == TRUE,])
 print(badTaxa) # 30 taxa
 
 ps.pa <- transform_sample_counts(bac.unedited, function(abund) 1*(abund>0))
-ps.pa.neg <- prune_samples(sample_data(ps.pa)$Sample_or_Control == "Control Sample", ps.pa)
-ps.pa.pos <- prune_samples(sample_data(ps.pa)$Sample_or_Control == "True Sample", ps.pa)
+ps.pa.neg <- prune_samples(sample_data(ps.pa)$is.neg == "TRUE", ps.pa)
+ps.pa.pos <- prune_samples(sample_data(ps.pa)$is.neg == "FALSE", ps.pa)
 
 # Make data.frame of prevalence in positive and negative samples
 df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
@@ -96,13 +103,13 @@ decontaminate.bac <- ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminan
   theme_classic()
 goodTaxa <- setdiff(taxa_names(bac.unedited), badTaxa)
 str(goodTaxa)
-bac_sub_no_bad <- prune_taxa(goodTaxa, bac.unedited)
+bac_filt <- prune_taxa(goodTaxa, bac.unedited)
 ```
 
 # Taxonomy filtering #
 ```{r}
 # remove OTUs that are mitochondria, chloroplast, or unidentified at the kingdom level 
-bac_no_chloro <- bac.unedited %>% 
+bac_no_chloro <- bac_filt %>% 
   phyloseq::subset_taxa(Order != "Chloroplast") %>%
   phyloseq::subset_taxa(Family != "Mitochondria") %>%
   phyloseq::subset_taxa(Kingdom != "unidentified")
@@ -117,8 +124,8 @@ chloro.mito.reads <- sum(sample_sums(bac.unedited))-sum(sample_sums(bac_no_chlor
 ```{r}
 # positive controls
 bac_mock <- bac_no_chloro %>% 
-  subset_samples(Type == "Positive Control") %>%
-  phyloseq::filter_taxa(function(x) sum(x) > 5, TRUE) # filter OTUs to have more than 1 read in mock samples
+  subset_samples(Sample_Type == "Positive_Control") %>%
+  phyloseq::filter_taxa(function(x) sum(x) > 10, TRUE) # filter OTUs to have more than 1 read in mock samples
 
 mock2 <- microbiome::transform(bac_mock, "compositional") # relative abundance transform
 
@@ -127,14 +134,12 @@ sequenced.mock.bac <- mock2 %>%
   ggplot(aes(Sample, Abundance, fill = OTU)) +
   geom_bar(stat = "identity") +
   theme_classic() +
-  scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
   scale_y_continuous(labels = scales::percent) +
   labs(x = "", y = "Relative abundance (%)",
        title = "Prokaryote") + 
   theme(axis.text.x = element_text(angle=45, hjust=1),
-        legend.text = element_text(face = "italic", size = 5),
-        legend.title = element_blank(),
-        legend.key.size = unit(0.3, 'cm')) 
+        legend.position = "none") 
 sequenced.mock.bac
 
 # Adding in theoretical distribution - the last two are fungi and are not expected to be amplified with 16S
@@ -196,7 +201,7 @@ sum(mock.composition[1:8,]$MeanRelAbund)
 ```{r}
 # remove samples with less than 5000 reads
 bac_sperm <- bac_no_chloro %>% 
-  subset_samples(Trt %in% c("Non.Steamed", "Steamed ", "Soybean Epiphytes")) %>%
+  subset_samples(Sample_Type %in% c("Bulk_Soil", "Spermosphere")) %>%
   #prune_samples(sample_sums(.) > 5000, .) %>% # remove samples below 5000 reads
   phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE) # remove taxa with less than 1 reads
 view(bac_sperm@sam_data)
@@ -205,10 +210,14 @@ sample.sums <- data.frame(sample_sums(bac_no_chloro))
 
 ###### RDS of Non-normalized Prokaryote data ######
 # Save an object to a file
-saveRDS(bac_sperm, file = "2024-01-24_SpermosphereSteaming_Bacteria/RDS/Bacteria_spermosphere_nonnorm_2024-01-24.rds")
-# Restore the object
-bac_sperm <- readRDS(file = "2024-01-24_SpermosphereSteaming_Bacteria/RDS/Bacteria_spermosphere_nonnorm_2024-01-24.rds")
+saveRDS(bac_sperm, file = "Spermosphere_bac_clean.rds")
+```
 
+```{r}
+# Restore the object
+bac_sperm <- readRDS(file = "Spermosphere_bac_clean.rds")
+```
+```{r}
 ###### READS PER SAMPLE ######
 sample.sums <- data.frame(sample_sums(bac_sperm))
 
@@ -219,11 +228,13 @@ read.dist.bac <- ggplot(sample.sums, aes(x = sample_sums.bac_sperm.)) +
   xlab("Read Depth") + 
   ggtitle("Prokaryote")
 
-sum(sample_sums(bac_sperm)) # total reads = 4,413,526
-median(sample_sums(bac_sperm)) # 35,177
-str(bac_sperm@sam_data) #119 Samples
-str(bac_sperm@otu_table) #7083 OTU
+sum(sample_sums(bac_sperm)) # total reads = 38960707
+median(sample_sums(bac_sperm)) # 100489.5
+str(bac_sperm@sam_data) #384 Samples
+str(bac_sperm@otu_table) #123518 OTU
+```
 
+```{r}
 ###### Rarefaction analysis #####
 sam.data <- data.frame(bac_sperm@sam_data)
 bOTU.table <- otu_table(bac_sperm) %>%
@@ -233,9 +244,19 @@ bOTU.table <- otu_table(bac_sperm) %>%
 raremax <- min(rowSums(t(bOTU.table)))
 rare.fun <- rarecurve(t(bOTU.table), step = 1000, sample = raremax, tidy = T)
 
-bac.rare.curve.extract2 <- left_join(sam.data, rare.fun, by = c("Tube" = "Site"))
+bac.rare.curve.extract2 <- left_join(sam.data, rare.fun, by = c("Sample_ID" = "Site"))
 
-bac.rare <- ggplot(bac.rare.curve.extract2, aes(x = Sample, y = Species, group = Tube, color = Trt)) + 
+bac.rare <- ggplot(bac.rare.curve.extract2, aes(x = Sample, y = Species, group = Sample_ID, color = Sample_Type)) + 
+  #geom_point() +
+  geom_line() + 
+  xlab("Reads") + 
+  ylab("Number of OTUs") +
+  ggtitle("Prokaryote") +
+  theme_classic() + 
+  geom_vline(xintercept = median(sample_sums(bac_sperm)), linetype = "dashed") +
+  scale_color_manual(values = cbbPalette)
+
+bac.rare2 <- ggplot(bac.rare.curve.extract2, aes(x = Sample, y = Species, group = Sample_ID, color = Location_EC)) + 
   #geom_point() +
   geom_line() + 
   xlab("Reads") + 
@@ -249,6 +270,8 @@ ggarrange(bac.rare,
           read.dist.bac, 
           sequenced.mock.bac, 
           decontaminate.bac, nrow = 2, ncol = 2, labels = "auto")
+
+ggarrange(bac.rare, bac.rare2, nrow = 1, ncol =2)
 ```
 
 # Metagenome CSS normalization #
@@ -261,9 +284,9 @@ norm.bac <- metagenomeSeq::MRcounts(MGS, norm = T)
 norm.bac.OTU <- phyloseq::otu_table(norm.bac, taxa_are_rows = TRUE) #exports the new otu table
 bac.css.norm <- phyloseq::phyloseq(norm.bac.OTU, FASTA.bac, SAMP.bac, TAX.bac, tree) #new otu table phyloseq object
 
-saveRDS(bac.css.norm, file = "2024-01-24_SpermosphereSteaming_Bacteria/RDS/Bacteria_spermosphere_nonnorm_CSS_2024-01-24.rds")
+saveRDS(bac.css.norm, file = "Spermosphere_CSS.rds")
 # Restore the object
-bac.css.norm <- readRDS(file = "2024-01-24_SpermosphereSteaming_Bacteria/RDS/Bacteria_spermosphere_nonnorm_CSS_2024-01-24.rds")
+bac.css.norm <- readRDS(file = "Spermosphere_CSS.rds")
 
 
 
@@ -272,7 +295,7 @@ bs.rarefied
 
 
 
-saveRDS(bs.rarefied, file = "2024-01-24_SpermosphereSteaming_Bacteria/RDS/Bacteria_spermosphere_Rarefied_2024-06-06.rds")
+saveRDS(bs.rarefied, file = "Spermosphere_Rare.rds")
 
 ```
 
