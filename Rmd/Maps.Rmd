@@ -1,0 +1,97 @@
+---
+title: "Maps"
+author: "Emily Roggenkamp"
+date: "2025-03-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse) # loads in ggplot and a few other packages that are very useful for wrangling code/making figures
+#library(sf) # "simple format", needed to work with maps/geometry objects
+#library(here) # again, quality of life package
+#library(readxl) # to read in excel based documents
+#library(cowplot) # to bring multiple figures into a single, multi-pane, figure
+#devtools::install_github("UrbanInstitute/urbnmapr")
+library(urbnmapr)
+```
+# Coordinates
+```{r}
+meta <- read.csv("Spermosphere_Metadata_030725.csv", header = TRUE)
+sp_coord <- subset(meta, select=c(17,18))
+sp_coord <- unique(sp_coord)
+sp_coord <- na.omit(sp_coord)
+meta_al <- meta[meta$State == "AL",]
+al_coord <- subset(meta_al, select=c(17,18))
+al_coord <- unique(al_coord)
+al_coord <- na.omit(al_coord)
+```
+
+## urbanmapr
+
+# USA
+```{r}
+usa <- statedata %>% 
+  left_join(states, by = "state_fips")%>% 
+  filter(state_name.x != "Hawaii" & state_name.x != "Alaska") #this doesn't make sense to me?
+
+```
+
+```{r}
+ggplot() +
+  geom_polygon(data = usa, mapping = aes(long, lat, group = group, fill = "grey"), color = "white", size = .25) +
+  geom_point(data = sp_coord, aes(x=Longitude, y=Latitude), size= 2, color = "darkblue", position=position_jitter(h=0.02, w=0.03)) +
+   scale_shape_manual(values = "8") +
+  scale_fill_manual(values = "grey") +
+    theme_void() +
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none",
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        plot.background=element_blank())
+ggsave("USMap_sp.png", dpi = 300)
+```
+
+
+# Alabama
+```{r}
+#meta.data$County2 <- paste(meta.data$County, "County") 
+alabama <- countydata %>% 
+  left_join(counties, by = "county_fips") %>% 
+  filter(state_name =="Alabama") 
+head(alabama)
+```
+
+
+
+```{r}
+ggplot() +
+  geom_polygon(data = alabama, mapping = aes(long, lat, group = group, fill = ""), color = "black", size = .25) +
+  geom_point(data = al_coord, aes(x=Longitude, y=Latitude), size= 3, color = "darkblue", position=position_jitter(h=0.02, w=0.03)) +
+   scale_shape_manual(values = "8") +
+  scale_fill_manual(values = "grey") +
+    #theme_void() +
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none",
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        plot.background=element_blank())
+ggsave("ALMap_sp.png", dpi = 300)
+```
