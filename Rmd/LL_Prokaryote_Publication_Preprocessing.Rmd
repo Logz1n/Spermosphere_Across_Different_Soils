@@ -65,13 +65,15 @@ tree <- phyloseq::read_tree("otu_tree.tre")
 ###### Create Initial Phyloseq object #####
 # Merge reads into Phyloseq object #
 bac.unedited <- phyloseq::phyloseq(OTU.bac, TAX.bac, SAMP.bac, FASTA.bac, tree)
-#save(bac.unedited, file = "physeq_bac_full.RData")
+#save objects to reduce memory?
+#saveRDS(bac.unedited, file = "physeq_bac_full.rds")
+#bac.unedited <- readRDS(file = "physeq_bac_full.rds")
+```
 
+```{r}
 # Remove singletons #
 bac.unedited <- filter_taxa(bac.unedited, function (x) {sum(x > 0) >1}, prune=TRUE)
-#save objects to reduce memory?
-#save(bac.unedited, file = "physeq_bac.RData")
-load("physeq_bac.RData")
+
 ```
 
 # Decontaminate ##
