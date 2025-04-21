@@ -26,6 +26,8 @@ library(microbiome)
 ##### Set global options #####
 # no scientific notation
 options(scipen=10000) 
+#Since RMD files moved the working directories needed to be specified
+setwd("Bacteria/2_Bacteria_Preprocessing")
 
 # color blind pallets used throughout 
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -79,7 +81,7 @@ bac.unedited <- filter_taxa(bac.unedited, function (x) {sum(x > 0) >1}, prune=TR
 
 # Decontaminate ##
 ```{r}
-
+unique(bac.unedited@sam_data$Sample_Type)
 #bac.unedited@sam_data$Sample_or_Control <- ifelse(bac.unedited@sam_data$Sample_Type == "Positive_Control", "True Sample",
                                                   #ifelse(bac.unedited@sam_data$Sample_Type == "Negative_Control", "Control Sample",
                                                          #ifelse(bac.unedited@sam_data$Sample_Type == "PCR_Control", "Control Sample", "True Sample")))
@@ -88,11 +90,13 @@ sample_data(bac.unedited)$is.neg <- sample_data(bac.unedited)$Sample_Type == "Ex
 contamdf.prev <- isContaminant(bac.unedited, method="prevalence", neg="is.neg", threshold = 0.1, normalize = TRUE)
 badTaxa <- rownames(contamdf.prev[contamdf.prev$contaminant == TRUE,])
 
-print(badTaxa) # 30 taxa
+print(badTaxa) # 523 taxa
 
 ps.pa <- transform_sample_counts(bac.unedited, function(abund) 1*(abund>0))
 ps.pa.neg <- prune_samples(sample_data(ps.pa)$is.neg == "TRUE", ps.pa)
 ps.pa.pos <- prune_samples(sample_data(ps.pa)$is.neg == "FALSE", ps.pa)
+
+view(ps.pa.pos@sam_data)
 
 # Make data.frame of prevalence in positive and negative samples
 df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
@@ -105,7 +109,7 @@ decontaminate.bac <- ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminan
   ggtitle("Prokaryote") +
   theme_classic()
 goodTaxa <- setdiff(taxa_names(bac.unedited), badTaxa)
-str(goodTaxa)
+str(goodTaxa) #124,214 good taxa
 bac_filt <- prune_taxa(goodTaxa, bac.unedited)
 ```
 
@@ -122,27 +126,30 @@ chloro.mito.reads <- sum(sample_sums(bac.unedited))-sum(sample_sums(bac_no_chlor
 
 # Percent reads that were chloroplast, mito, or unidentified
 (chloro.mito.reads/sum(sample_sums(bac.unedited)))*100
+#20.1 percent
+
 ```
 # Mock Community analysis #
 ```{r}
 # positive controls
 bac_mock <- bac_no_chloro %>% 
   subset_samples(Sample_Type == "Positive_Control") %>%
-  phyloseq::filter_taxa(function(x) sum(x) > 10, TRUE) # filter OTUs to have more than 1 read in mock samples
+  phyloseq::filter_taxa(function(x) sum(x) > 10, TRUE) # filter OTUs to have more than 10 read in mock samples
+
+view(bac_mock@tax_table)
 
 mock2 <- microbiome::transform(bac_mock, "compositional") # relative abundance transform
 
 sequenced.mock.bac <- mock2 %>%
   psmelt() %>% 
-  ggplot(aes(Sample, Abundance, fill = OTU)) +
+  ggplot(aes(Sample, Abundance, fill = Genus)) +
   geom_bar(stat = "identity") +
   theme_classic() +
-  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
   scale_y_continuous(labels = scales::percent) +
   labs(x = "", y = "Relative abundance (%)",
        title = "Prokaryote") + 
-  theme(axis.text.x = element_text(angle=45, hjust=1),
-        legend.position = "none") 
+  theme(axis.text.x = element_text(angle=45, hjust=1)) 
 sequenced.mock.bac
 
 # Adding in theoretical distribution - the last two are fungi and are not expected to be amplified with 16S
@@ -213,12 +220,12 @@ sample.sums <- data.frame(sample_sums(bac_no_chloro))
 
 ###### RDS of Non-normalized Prokaryote data ######
 # Save an object to a file
-saveRDS(bac_sperm, file = "Spermosphere_bac_clean.rds")
+saveRDS(bac_sperm, file = "Bacteria_RDS/Spermosphere_bac_clean.rds")
 ```
 
 ```{r}
 # Restore the object
-bac_sperm <- readRDS(file = "Spermosphere_bac_clean.rds")
+bac_sperm <- readRDS(file = "Bacteria_RDS/Spermosphere_bac_clean.rds")
 ```
 ```{r}
 ###### READS PER SAMPLE ######
