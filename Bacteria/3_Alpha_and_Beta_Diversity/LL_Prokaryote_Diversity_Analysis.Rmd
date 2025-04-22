@@ -1111,7 +1111,32 @@ UnifracCombined <- ggpubr::ggarrange(pcoa.unifrac.0hrs.new,
 ##### Community Composition of top 20 most abundant OTUs ######
 ##### Prokaryote #####
 ```{r}
-
+#subsetting by the top taxa (20)
+topx <- top_taxa(fun.Steamed, n = 20)
+#relative abundance plot
+fun.composition <- fun.Steamed %>%
+  subset_taxa(OTU %in% topx) %>%
+  microbiome::transform("compositional") %>%
+  psmelt() %>% 
+  group_by(Trt, Time, Label) %>%
+  mutate(Time = factor(Time, levels = c("Planting", "17hrs", "V2"))) %>%
+  summarise(MeanRelAbund = mean(Abundance)) %>%
+  arrange(-MeanRelAbund) %>%
+  left_join(as.data.frame(tax_table(bac_sperm), by = "Label")) %>% 
+  ggplot(aes(Type, MeanRelAbund, fill = Label)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  #scale_x_discrete(labels=c('Soil no seed', 'Cotton Sp.', 'Soybean sp.'))+
+  scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "", y = "Relative abundance (%)",
+       title = "Prokaryote") + 
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.text = element_text(face = "italic", size = 5),
+        legend.title = element_blank(),
+        legend.key.size = unit(0.3, 'cm')) +
+  facet_wrap(~Time, nrow = 1)
+bac.composition
 ```
 
 
