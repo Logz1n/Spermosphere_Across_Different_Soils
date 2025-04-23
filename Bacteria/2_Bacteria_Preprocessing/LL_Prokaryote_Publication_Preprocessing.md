@@ -252,7 +252,7 @@
       scale_y_continuous(labels = scales::percent) +
       labs(x = "", y = "Relative abundance (%)",
            title = "Prokaryote") + 
-      theme(axis.text.x = element_text(angle=45, hjust=1)) 
+      theme(axis.text.x = element_text(angle=45, hjust=1), legend.position = "none") 
 
     ## Warning in psmelt(.): The rank names: 
     ## OTU

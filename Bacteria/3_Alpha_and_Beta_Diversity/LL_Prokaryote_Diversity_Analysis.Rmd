@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #Data Preprocessing#
 ## Libraries ##
-```{r Loading Libraries, echo= FALSE}
+```{r Loading Libraries,warning=FALSE, message=FALSE}
 library(BiocManager)
 library(phyloseq)
 library(vegan)
@@ -307,7 +307,7 @@ BAlphaCombined <- rbind.data.frame(autophylo.diversity.join, MIphylo.diversity.j
 ```
 
 ###Plotting Richness for Prokaryotes as a Box-Plot###
-```{r Plotting Richness}
+```{r Plotting Richness,warning=FALSE}
 bac.richness <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = richness, color = Time)) +
   facet_wrap(~factor(Location2)) +
@@ -368,7 +368,7 @@ bac.richness
 ```
 
 ###Plotting Faith's Phylogenetic Diversity for Prokaryotes as a Box-Plot###
-```{r Plotting Faiths Phylogenetic Diversity}
+```{r Plotting Faiths Phylogenetic Diversity, warning=FALSE}
 bac.phylo.div <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = PD, color = Location2)) +
   facet_wrap(~factor(Time, levels = c("0", "8", "12","16")), scale = "free") +
@@ -427,7 +427,7 @@ bac.phylo.div
 ```
 
 ###Plotting Pielou's Eveness for Prokaryotes as a Box-Plot###
-```{r Plotting Pielous Eveness}
+```{r Plotting Pielous Eveness,warning=FALSE}
 bac.even <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = even, color = Location2)) +
   facet_wrap(~factor(Time, levels = c("0", "8", "12","16")), scale = "free") +
@@ -561,7 +561,7 @@ ObservedEveness <- BAlphaCombined %>%
 ```
 
 ## Faith's Phylogenetic Diversity Statistics
-```{r Faiths Phylogenetic Diversity Statstics}
+```{r Faiths Phylogenetic Diversity Statstics,warning=FALSE}
 # Fit a negative binomial regression model to the 'PD' (Faiths Phylogenetic Diversity) variable using the specified predictors
 RichStat.C <- glm.nb(PD ~ Sample_Type + Time + Location2 + Location2 * Time * Sample_Type, data = BAlphaCombined) 
 
