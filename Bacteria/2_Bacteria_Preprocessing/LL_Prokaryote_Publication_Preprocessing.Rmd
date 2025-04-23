@@ -1,8 +1,10 @@
 ---
 title: "LL_Publication_Preprocessing_Prokaryote"
 author: "Logan Luchs"
-date: "2025-02-24"
-output: html_document
+date: "2025-04-23"
+output: 
+  md_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
@@ -10,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Bacterial Data Preprocessing #
-```{r}
+```{r Loading Libraries and Pallettes, warning=FALSE, message=FALSE}
 ##Loading Libraries ##
 
 library(phyloseq)
@@ -27,7 +29,6 @@ library(microbiome)
 # no scientific notation
 options(scipen=10000) 
 #Since RMD files moved the working directories needed to be specified
-setwd("Bacteria/2_Bacteria_Preprocessing")
 
 # color blind pallets used throughout 
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -36,23 +37,22 @@ tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "
 ```
 
 # Read in data #
-```{r}
+```{r Reading in the Data}
 # Metadata #
 samp_dat_bac <- read.csv("HPC_Output/Spermosphere_16S_Metadata.csv", na.strings = "na")
 
 rownames(samp_dat_bac) <- samp_dat_bac$Sample_ID #row names must match OTU table headers
 SAMP.bac <- phyloseq::sample_data(samp_dat_bac)
 
-# OTU table # remove hash and space in OTU_ID header manually
+#OTU table # remove hash and space in OTU_ID header manually
 #OTU TABLE is too large therefore it is included in a zip file, Github file size exceeded
-otu_bac <- read.csv("HPC_Output/FASTA _and_OTU_TABLE/otu_table_16S_Bacteria.txt", sep = "\t") #txt file is tab separated
-colnames(otu_bac) <- sub("_.*", "", colnames(otu_bac)) #removing _S*_merged
-rownames(otu_bac) <- otu_bac$OTU
-otu_bac <- otu_bac[,-1]
-OTU.bac <- phyloseq::otu_table(otu_bac, taxa_are_rows = TRUE)
-
-any(is.na(otu_bac)) # no NA in the OTU table
-
+#otu_bac <- read.csv("HPC_Output/FASTA _and_OTU_TABLE/otu_table_16S_Bacteria.txt", sep = "\t") #txt file is tab separated
+#colnames(otu_bac) <- sub("_.*", "", colnames(otu_bac)) #removing _S*_merged
+#rownames(otu_bac) <- otu_bac$OTU
+#otu_bac <- otu_bac[,-1]
+#OTU.bac <- phyloseq::otu_table(otu_bac, taxa_are_rows = TRUE)
+#any(is.na(otu_bac)) # no NA in the OTU table
+###IN ORDER TO KNIT THIS THE LINES ABOVE ARE COMMENTED OUT FILE IS COMPRESSED ###
 # Taxonomy #
 taxonomy.bac <- read.csv("HPC_Output/16s_taxonomy_SINTAX.txt", sep = "")
 rownames(taxonomy.bac) <- taxonomy.bac$OTU
@@ -60,21 +60,22 @@ TAX.bac <- phyloseq::tax_table(as.matrix(taxonomy.bac))
 
 # Fasta # fasta is too large so not running for now
 # FASTA is too large therefore it is included in a zip file. Github file size exceeded.
-FASTA.bac <- readDNAStringSet("HPC_Output/FASTA _and_OTU_TABLE/otus.fasta", format="fasta", seek.first.rec=TRUE, use.names=TRUE)
-
+#FASTA.bac <- readDNAStringSet("HPC_Output/FASTA _and_OTU_TABLE/otus.fasta", format="fasta", seek.first.rec=TRUE, use.names=TRUE)
+###IN ORDER TO KNIT THIS THE LINE ABOVE IS COMMENTED OUT FILE IS COMPRESSED ###
 # Phylogentic tree #
 tree <- phyloseq::read_tree("HPC_Output/otu_tree.tre")
 
 ###### Create Initial Phyloseq object #####
 # Merge reads into Phyloseq object #
-bac.unedited <- phyloseq::phyloseq(OTU.bac, TAX.bac, SAMP.bac, FASTA.bac, tree)
+#bac.unedited <- phyloseq::phyloseq(OTU.bac, TAX.bac, SAMP.bac, FASTA.bac, tree)
+###IN ORDER TO KNIT THIS THE LINE ABOVE IS COMMENTED OUT; MULTIPLE FILES ARE COMPRESSED ###
 #save objects to reduce memory?
 #saveRDS(bac.unedited, file = "physeq_bac_full.rds")
 bac.unedited <- readRDS(file = "Bacteria_RDS/physeq_bac_full.rds")
 ```
 
 # Decontaminate ##
-```{r}
+```{r Decontamination}
 unique(bac.unedited@sam_data$Sample_Type)
 #bac.unedited@sam_data$Sample_or_Control <- ifelse(bac.unedited@sam_data$Sample_Type == "Positive_Control", "True Sample",
                                                   #ifelse(bac.unedited@sam_data$Sample_Type == "Negative_Control", "Control Sample",
@@ -108,7 +109,7 @@ bac_filt <- prune_taxa(goodTaxa, bac.unedited)
 ```
 
 # Taxonomy filtering #
-```{r}
+```{r Filtering Taxa that are not Bacteria}
 # remove OTUs that are mitochondria, chloroplast, or unidentified at the kingdom level 
 bac_no_chloro <- bac_filt %>% 
   phyloseq::subset_taxa(Order != "Chloroplast") %>%
@@ -125,15 +126,11 @@ chloro.mito.reads <- sum(sample_sums(bac.unedited))-sum(sample_sums(bac_no_chlor
 
 ```
 # Mock Community analysis #
-```{r}
+```{r Mock Community Analysis}
 # positive controls
 bac_mock <- bac_no_chloro %>% 
   subset_samples(Sample_Type == "Positive_Control") #%>%
   #phyloseq::filter_taxa(function(x) sum(x) > 1500, TRUE) # filter OTUs to have more than 10 read in mock samples
-
-view(bac_mock@tax_table)
-
-
 
 mock2 <- microbiome::transform(bac_mock, "compositional") # relative abundance transform
 
@@ -142,7 +139,7 @@ sequenced.mock.bac <- mock2 %>%
   ggplot(aes(Sample, Abundance, fill = Genus)) +
   geom_bar(stat = "identity") +
   theme_classic() +
-  scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
   scale_y_continuous(labels = scales::percent) +
   labs(x = "", y = "Relative abundance (%)",
        title = "Prokaryote") + 
@@ -205,7 +202,7 @@ mock.composition <- mock2 %>%
 sum(mock.composition[1:8,]$MeanRelAbund)
 ```
 # Data filtering #
-```{r}
+```{r Removing Positve and Negative Controls}
 # remove samples with less than 5000 reads
 bac_sperm <- bac_no_chloro %>% 
   subset_samples(Sample_Type %in% c("Bulk_Soil", "Spermosphere")) #%>%
@@ -218,12 +215,11 @@ sample.sums <- data.frame(sample_sums(bac_no_chloro))
 # Save an object to a file
 saveRDS(bac_sperm, file = "Bacteria_RDS/Spermosphere_bac_clean.rds")
 ```
-
-```{r}
+# Read Depth Analysis
+```{r Read Depth Analysis}
 # Restore the object
 bac_sperm <- readRDS(file = "Bacteria_RDS/Spermosphere_bac_clean.rds")
-```
-```{r}
+
 ###### READS PER SAMPLE ######
 sample.sums <- data.frame(sample_sums(bac_sperm))
 
@@ -241,7 +237,8 @@ str(bac_sperm@sam_data) #384 Samples
 str(bac_sperm@otu_table) #123518 OTU
 ```
 
-```{r}
+# Rarefaction Analysis #
+```{r Rarefaction Analysis}
 ###### Rarefaction analysis #####
 sam.data <- data.frame(bac_sperm@sam_data)
 bOTU.table <- otu_table(bac_sperm) %>%
@@ -284,16 +281,19 @@ ggarrange(bac.rare, bac.rare2, nrow = 1, ncol =2)
 ```
 
 # Metagenome CSS normalization #
-```{r}
+```{r Metagenome CSS normalization and Rarefying}
 MGS <- phyloseq_to_metagenomeSeq(bac_sperm) #converts to metagenomeseq format
 p <- metagenomeSeq::cumNormStatFast(MGS)
 MGS <- metagenomeSeq::cumNorm(MGS, p =p)
 metagenomeSeq::normFactors(MGS) # exports the normalized factors for each sample
 norm.bac <- metagenomeSeq::MRcounts(MGS, norm = T) 
 norm.bac.OTU <- phyloseq::otu_table(norm.bac, taxa_are_rows = TRUE) #exports the new otu table
-bac.css.norm <- phyloseq::phyloseq(norm.bac.OTU, FASTA.bac, SAMP.bac, TAX.bac, tree) #new otu table phyloseq object
 
-saveRDS(bac.css.norm, file = "Bacteria_RDS/Spermosphere_CSS.rds")
+#bac.css.norm <- phyloseq::phyloseq(norm.bac.OTU, FASTA.bac, SAMP.bac, TAX.bac, tree) #new otu table phyloseq object
+# ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
+#saveRDS(bac.css.norm, file = "Bacteria_RDS/Spermosphere_CSS.rds")
+# ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
+
 # Restore the object
 bac.css.norm <- readRDS(file = "Bacteria_RDS/Spermosphere_CSS.rds")
 

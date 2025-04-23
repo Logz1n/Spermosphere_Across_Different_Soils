@@ -1,19 +1,19 @@
 ---
 title: "Bacterial_Diversity_Analysis"
-author: "Logan Luchs"
-date: "2025-02-22"
-output: html_document
+author: "Logan Luchs and Emily Roggenkamp"
+date: "2025-04-23"
+output: 
+  md_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("Bacteria/3_Alpha_and_Beta_Diversity")
 ```
 
 #Data Preprocessing#
-
 ## Libraries ##
-```{r}
+```{r Loading Libraries, echo= FALSE}
 library(BiocManager)
 library(phyloseq)
 library(vegan)
@@ -31,7 +31,7 @@ library(emmeans)
 ```
 
 ## Set global options ##
-```{r}
+```{r Setting Global Options}
 # Set global options #
 # no scientific notation
 options(scipen=10000) 
@@ -45,7 +45,7 @@ tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "
 ##NOTE: Rmd files set the working directory to the place where the rmd file is, not the actual working directory
 ##Read in and Separation##
 ## Read in the RDS files #
-```{r}
+```{r Reading in RDS}
 ###Bacterial RDS
 BSpermosphere_RDS_CSS <- readRDS("Bacteria_RDS/Spermosphere_CSS.rds") ##Using Normalized Reads
 
@@ -53,8 +53,8 @@ BSpermosphere_RDS_NoNorm <- readRDS("Bacteria_RDS/Spermosphere_bac_clean.rds") #
 ```
 
 
-##Seperation of Nonsteamed vs Steamed soils##
-```{r}
+##Seperation by Location ##
+```{r Subsetting by Location}
 bac.Auto <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "Autoclaved_Potting_Soil")
 bac.EV <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "EVSmith_EC")
 bac.MI <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "Michigan")
@@ -63,33 +63,11 @@ bac.Wire <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "Wiregrass_E
 bac.PA <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "Pennsylvania")
 bac.AR <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "Arkansas")
 bac.TVR <- subset_samples(BSpermosphere_RDS_NoNorm, Location_EC == "TVRec_EC")
-
-view(bac.EV@sam_data)
 ```
-
-## separating the otu table, metadata, and the tax data for ease #
-```{r}
-#BACTERIA Steamed
-Sbac.meta.data <- data.frame(bac.Steamed@sam_data)
-Sbac.tax.data <- data.frame(bac.Steamed@tax_table)
-Sbac.otu <- bac.Steamed@otu_table %>%
-  as("matrix")
-#BACTERIA NonSteamed
-Nbac.meta.data <- data.frame(bac.Nonsteamed@sam_data)
-Nbac.tax.data <- data.frame(bac.Nonsteamed@tax_table)
-Nbac.otu <- bac.Nonsteamed@otu_table %>%
-  as("matrix")
-
-cssbac.meta.data <- data.frame(BSpermosphere_RDS_CSS@sam_data)
-
-
-
-```
-
 
 # Alpha Diversity Analysis #
 ## Autoclaved Soil ##
-```{r}
+```{r Autoclaved Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.Auto@sam_data$shannon <- estimate_richness(bac.Auto, measures=c("Shannon"))$Shannon
@@ -117,9 +95,8 @@ autophylo.diversity.join$Time.Point <- factor(autophylo.diversity.join$Time, lev
 
 ```
 ## EVSMITH Soil ##
-```{r}
+```{r EV Smith Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
-
 bac.EV@sam_data$shannon <- estimate_richness(bac.EV, measures=c("Shannon"))$Shannon
 bac.EV@sam_data$invsimpson <- estimate_richness(bac.EV, measures=c("InvSimpson"))$InvSimpson
 bac.EV@sam_data$simpson <- estimate_richness(bac.EV, measures=c("Simpson"))$Simpson
@@ -145,7 +122,7 @@ EVphylo.diversity.join$Time.Point <- factor(EVphylo.diversity.join$Time, levels 
 
 ```
 ## Michigan Soil ##
-```{r}
+```{r Michigan Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.MI@sam_data$shannon <- estimate_richness(bac.MI, measures=c("Shannon"))$Shannon
@@ -173,7 +150,7 @@ MIphylo.diversity.join$Time.Point <- factor(MIphylo.diversity.join$Time, levels 
 
 ```
 ## North Dakota Soil ##
-```{r}
+```{r North Dakota Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.ND@sam_data$shannon <- estimate_richness(bac.ND, measures=c("Shannon"))$Shannon
@@ -201,7 +178,7 @@ NDphylo.diversity.join$Time.Point <- factor(NDphylo.diversity.join$Time, levels 
 
 ```
 ## Wiregrass Soil ##
-```{r}
+```{r Wiregrass Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.Wire@sam_data$shannon <- estimate_richness(bac.Wire, measures=c("Shannon"))$Shannon
@@ -229,7 +206,7 @@ Wirephylo.diversity.join$Time.Point <- factor(Wirephylo.diversity.join$Time, lev
 
 ```
 ## Pennsylvania Soil ##
-```{r}
+```{r Pennsylvania Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.PA@sam_data$shannon <- estimate_richness(bac.PA, measures=c("Shannon"))$Shannon
@@ -257,7 +234,7 @@ PAphylo.diversity.join$Time.Point <- factor(PAphylo.diversity.join$Time, levels 
 
 ```
 ## Arkansas Soil ##
-```{r}
+```{r Arkansas Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.AR@sam_data$shannon <- estimate_richness(bac.AR, measures=c("Shannon"))$Shannon
@@ -285,7 +262,7 @@ ARphylo.diversity.join$Time.Point <- factor(ARphylo.diversity.join$Time, levels 
 
 ```
 ## TVREC Soil ##
-```{r}
+```{r TVREC Alpha Diversity}
 ### Calculating Shannon, Simpson, Inverse Simpson and Pielou's Eveness ###
 
 bac.TVR@sam_data$shannon <- estimate_richness(bac.TVR, measures=c("Shannon"))$Shannon
@@ -315,7 +292,8 @@ TVRphylo.diversity.join$Time.Point <- factor(TVRphylo.diversity.join$Time, level
 
 
 ###Merging Steamed and Nonsteamed Alpha Diversity Data Frames###
-```{r}
+```{r Conjoining the Dataframes}
+# Creating new columns To distinguish the dataframes
 autophylo.diversity.join$Location2 <- "Autoclaved_Control"
 MIphylo.diversity.join$Location2 <- "Michigan"
 NDphylo.diversity.join$Location2 <- "North_Dakota"
@@ -329,7 +307,7 @@ BAlphaCombined <- rbind.data.frame(autophylo.diversity.join, MIphylo.diversity.j
 ```
 
 ###Plotting Richness for Prokaryotes as a Box-Plot###
-```{r}
+```{r Plotting Richness}
 bac.richness <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = richness, color = Time)) +
   facet_wrap(~factor(Location2)) +
@@ -350,6 +328,14 @@ bac.richness <- BAlphaCombined %>%
   theme_classic()+
   theme(legend.text = element_text(face = "italic", size = 12), legend.title = element_blank())
 bac.richness
+
+#The code begins by loading the necessary libraries, dplyr, ggplot2, and ggpubr, which are essential for data manipulation and visualization. The bac.richness object is created using the BAlphaCombined data frame. The ggplot function is initialized with aesthetic mappings, where Sample_Type is mapped to the x-axis, richness to the y-axis, and Time to the color of the points. The facet_wrap(~factor(Location2)) function is used to create separate plots for each level of Location2, allowing for a clear comparison across different locations.
+
+#Boxplots are added to the plot using geom_boxplot(position = position_dodge2(0.85, preserve = "single")), which ensures that the boxplots are dodged to avoid overlap. To show individual data points, geom_point(position = position_jitterdodge(0.05)) is used, adding jittered points to the plot. Pairwise comparisons are added using geom_pwc(aes(group = Location2), method = "t_test", label = "p.adj.format"), which performs t-tests and adjusts the p-values for multiple comparisons.
+
+#The y-axis limits and breaks are set using scale_y_continuous(limits = c(0, 5000), breaks = seq(0, 5000, 500)), ensuring the y-axis ranges from 0 to 5000 with breaks at every 500 units. The fill colors for the plot are manually set using scale_fill_manual(values = cbbPalette), and the color palette for points and lines is defined with color_palette(cbbPalette). The y-axis and x-axis are labeled "Richness" and "Type of Environment" respectively, using ylab("Richness") and xlab("Type of Environment").
+
+#A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 12, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 12), legend.title = element_blank()). The plot is then printed by calling bac.richness, displaying the final visualization.
 
 bac.richness <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = richness, color = Location2)) +
@@ -372,14 +358,17 @@ bac.richness <- BAlphaCombined %>%
   theme(legend.text = element_text(face = "italic", size = 12), legend.title = element_blank())
 bac.richness
 
+#The code begins by loading the necessary libraries, dplyr, ggplot2, and ggpubr, which are essential for data manipulation and visualization. The bac.richness object is created using the BAlphaCombined data frame. The ggplot function is initialized with aesthetic mappings, where Sample_Type is mapped to the x-axis, richness to the y-axis, and Location2 to the color of the points. The facet_wrap(~factor(Time, levels = c("0", "8", "12","16"))) function is used to create separate plots for each level of Time, allowing for a clear comparison across different time points.
 
-#This code creates a ggplot object to visualize the richness data from the BAlphaCombined data frame. It sets the x-axis to represent the 'Type' of environment and the y-axis to show the 'richness' values, with colors distinguishing between "Steamed" and "NonSteamed" samples. The plot is divided into separate panels for each time point ("Planting," "17hrs," and "V2") using facet_wrap. Boxplots are added to display the distribution of richness values, with individual data points overlaid using jitter to avoid overlap. The y-axis is scaled to range from 0 to 4000, with breaks at every 500 units. A t-test is performed to compare means, and the results are displayed on the plot. The plot is customized with specific labels for the x and y axes, and a white background theme is applied. Additionally, the legend text is italicized, and the legend title is removed for a cleaner appearance. The final plot is stored in the bac.richness object and displayed.
+#Boxplots are added to the plot using geom_boxplot(position = position_dodge2(0.85, preserve = "single")), which ensures that the boxplots are dodged to avoid overlap. To show individual data points, geom_point(position = position_jitterdodge(0.05)) is used, adding jittered points to the plot. Pairwise comparisons are added using geom_pwc(aes(group = Location2), method = "t_test", label = "p.adj.format"), which performs t-tests and adjusts the p-values for multiple comparisons.
 
+#The y-axis limits and breaks are set using scale_y_continuous(limits = c(0, 5000), breaks = seq(0, 5000, 500)), ensuring the y-axis ranges from 0 to 5000 with breaks at every 500 units. The fill colors for the plot are manually set using scale_fill_manual(values = cbbPalette), and the color palette for points and lines is defined with color_palette(cbbPalette). The y-axis and x-axis are labeled "Richness" and "Type of Environment" respectively, using ylab("Richness") and xlab("Type of Environment").
 
+#A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 12, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 12), legend.title = element_blank()). The plot is then printed by calling bac.richness, displaying the final visualization.
 ```
 
 ###Plotting Faith's Phylogenetic Diversity for Prokaryotes as a Box-Plot###
-```{r}
+```{r Plotting Faiths Phylogenetic Diversity}
 bac.phylo.div <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = PD, color = Location2)) +
   facet_wrap(~factor(Time, levels = c("0", "8", "12","16")), scale = "free") +
@@ -400,6 +389,14 @@ bac.phylo.div <- BAlphaCombined %>%
   theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
 bac.phylo.div
 
+#The code begins by loading the necessary libraries, dplyr, ggplot2, and ggpubr, which are essential for data manipulation and visualization. The bac.phylo.div object is created using the BAlphaCombined data frame. The ggplot function is initialized with aesthetic mappings, where Sample_Type is mapped to the x-axis, PD to the y-axis, and Location2 to the color of the points. The facet_wrap(~factor(Time, levels = c("0", "8", "12","16")), scale = "free") function is used to create separate plots for each level of Time, allowing for a clear comparison across different time points, with each facet having its own scale.
+
+#Boxplots are added to the plot using geom_boxplot(position = position_dodge2(0.85, preserve = "single")), which ensures that the boxplots are dodged to avoid overlap. To show individual data points, geom_point(position = position_jitterdodge(0.05)) is used, adding jittered points to the plot. The y-axis limits and breaks are commented out, but if needed, they can be set using scale_y_continuous(limits = c(30, 210), breaks = seq(30, 210, 70)).
+
+#The fill colors for the plot are manually set using scale_fill_manual(values = cbbPalette), and the color palette for points and lines is defined with color_palette(cbbPalette). The y-axis and x-axis are labeled "Faith's PD" and "Type of Environment" respectively, using ylab("Faith's PD") and xlab("Type of Environment").
+
+#A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 8, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank()). The plot is then printed by calling bac.phylo.div, displaying the final visualization.
+
 bac.phylo.div <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = PD, color = Time)) +
   facet_wrap(~factor(Location2), scale = "free") +
@@ -419,11 +416,18 @@ bac.phylo.div <- BAlphaCombined %>%
   theme_classic()+
   theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
 bac.phylo.div
-#This code creates a ggplot object to visualize Faith's phylogenetic diversity (PD) from the BAlphaCombined data frame. It sets the x-axis to represent the 'Type' of environment and the y-axis to show the PD values, with colors distinguishing between "Steamed" and "NonSteamed" samples. The plot is divided into separate panels for each time point ("Planting," "17hrs," and "V2") using facet_wrap. Boxplots are added to display the distribution of PD values, with individual data points overlaid using jitter to avoid overlap. The y-axis is scaled to range from 30 to 210, with breaks at every 70 units. The plot is customized with specific labels for the x and y axes, and a classic theme is applied. Additionally, the legend text is italicized, and the legend title is removed for a cleaner appearance. The final plot is stored in the bac.phylo.div object and displayed.
+#The code begins by loading the necessary libraries, dplyr, ggplot2, and ggpubr, which are essential for data manipulation and visualization. The bac.phylo.div object is created using the BAlphaCombined data frame. The ggplot function is initialized with aesthetic mappings, where Sample_Type is mapped to the x-axis, PD to the y-axis, and Time to the color of the points. The facet_wrap(~factor(Location2), scale = "free") function is used to create separate plots for each level of Location2, allowing for a clear comparison across different locations, with each facet having its own scale.
+
+#Boxplots are added to the plot using geom_boxplot(position = position_dodge2(0.85, preserve = "single")), which ensures that the boxplots are dodged to avoid overlap. To show individual data points, geom_point(position = position_jitterdodge(0.05)) is used, adding jittered points to the plot. The y-axis limits and breaks are commented out, but if needed, they can be set using scale_y_continuous(limits = c(30, 210), breaks = seq(30, 210, 70)).
+
+#The fill colors for the plot are manually set using scale_fill_manual(values = cbbPalette), and the color palette for points and lines is defined with color_palette(cbbPalette). The y-axis and x-axis are labeled "Faith's PD" and "Type of Environment" respectively, using ylab("Faith's PD") and xlab("Type of Environment").
+
+#A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 8, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank()). The plot is then printed by calling bac.phylo.div, displaying the final visualization.
+
 ```
 
 ###Plotting Pielou's Eveness for Prokaryotes as a Box-Plot###
-```{r}
+```{r Plotting Pielous Eveness}
 bac.even <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = even, color = Location2)) +
   facet_wrap(~factor(Time, levels = c("0", "8", "12","16")), scale = "free") +
@@ -441,6 +445,14 @@ bac.even <- BAlphaCombined %>%
   theme_classic() +
   theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
 bac.even
+#The code begins by loading the necessary libraries, dplyr, ggplot2, and ggpubr, which are essential for data manipulation and visualization. The bac.even object is created using the BAlphaCombined data frame. The ggplot function is initialized with aesthetic mappings, where Sample_Type is mapped to the x-axis, even to the y-axis, and Location2 to the color of the points. The facet_wrap(~factor(Time, levels = c("0", "8", "12","16")), scale = "free") function is used to create separate plots for each level of Time, allowing for a clear comparison across different time points, with each facet having its own scale.
+
+#Boxplots are added to the plot using geom_boxplot(position = position_dodge2(0.85, preserve = "single")), which ensures that the boxplots are dodged to avoid overlap. To show individual data points, geom_point(position = position_jitterdodge(0.05)) is used, adding jittered points to the plot. The y-axis limits and breaks are commented out, but if needed, they can be set using scale_y_continuous(limits = c(0.45, 0.85), breaks = seq(0.45, 0.85, 0.05)).
+
+#The fill colors for the plot are manually set using scale_fill_manual(values = cbbPalette), and the color palette for points and lines is defined with color_palette(cbbPalette). The y-axis and x-axis are labeled "Pielou's evenness" and "Type of Environment" respectively, using ylab("Pielou's evenness") and xlab("Type of Environment").
+
+#A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 8, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank()). The plot is then printed by calling bac.even, displaying the final visualization.
+
 bac.even <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = even, color = Time)) +
   facet_wrap(~factor(Location2)) +
@@ -458,11 +470,18 @@ bac.even <- BAlphaCombined %>%
   theme_classic() +
   theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
 bac.even
-#This code creates a ggplot object to visualize Pielou's evenness from the BAlphaCombined data frame. It sets the x-axis to represent the 'Type' of environment and the y-axis to show the evenness values, with colors distinguishing between "Steamed" and "NonSteamed" samples. The plot is divided into separate panels for each time point ("Planting," "17hrs," and "V2") using facet_wrap. Boxplots are added to display the distribution of evenness values, with individual data points overlaid using jitter to avoid overlap. The y-axis is scaled to range from 0.45 to 0.85, with breaks at every 0.05 units. The plot is customized with specific labels for the x and y axes, and a classic theme is applied. Additionally, the legend text is italicized, and the legend title is removed for a cleaner appearance. The final plot is stored in the bac.even object and displayed.
+
+#The code begins by loading the necessary libraries, dplyr, ggplot2, and ggpubr, which are essential for data manipulation and visualization. The bac.even object is created using the BAlphaCombined data frame. The ggplot function is initialized with aesthetic mappings, where Sample_Type is mapped to the x-axis, even to the y-axis, and Time to the color of the points. The facet_wrap(~factor(Location2)) function is used to create separate plots for each level of Location2, allowing for a clear comparison across different locations.
+
+#Boxplots are added to the plot using geom_boxplot(position = position_dodge2(0.85, preserve = "single")), which ensures that the boxplots are dodged to avoid overlap. To show individual data points, geom_point(position = position_jitterdodge(0.05)) is used, adding jittered points to the plot. The y-axis limits and breaks are commented out, but if needed, they can be set using scale_y_continuous(limits = c(0.45, 0.85), breaks = seq(0.45, 0.85, 0.05)).
+
+#The fill colors for the plot are manually set using scale_fill_manual(values = cbbPalette), and the color palette for points and lines is defined with color_palette(cbbPalette). The y-axis and x-axis are labeled "Pielou's evenness" and "Type of Environment" respectively, using ylab("Pielou's evenness") and xlab("Type of Environment").
+
+#A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 8, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank()). The plot is then printed by calling bac.even, displaying the final visualization.
 
 ```
 #### Richness statistics ####
-```{r}
+```{r Richness Statstics}
 
 # for every X - unit change in X we observed a exp^b times as many species.  
 # 1 exp^b
@@ -472,7 +491,7 @@ bac.even
 ### calculating observed means ###
 
 ObservedRichness <- BAlphaCombined %>%
-  group_by(Trt, Time, Type.revised) %>%  
+  group_by(Location_EC, Time, Sample_Type) %>%  
   summarise(MeanRichness = mean(richness), STDRichness = sd(richness)) %>% 
   arrange(-MeanRichness)
 
@@ -513,7 +532,7 @@ Results_lsmeansEC <- multcomp::cld(lsmeans, alpha = 0.05, reversed = TRUE, detai
 ```
 
 #### Evenness Statstics ####
-```{r}
+```{r Eveness Statstics}
 ##Evenness Statistics
 #install.packages("betareg")
 library(betareg)
@@ -522,7 +541,7 @@ EvenStat.B <- betareg(even ~ Sample_Type + Time + Location2 + Location2 * Time *
 #works because the data ranges 0-1
 
 # Perform an ANOVA on the fitted model
-anova(EvenStat.B)
+#anova(EvenStat.B)
 
 # Display a summary of the fitted model
 summary(EvenStat.B)
@@ -542,7 +561,7 @@ ObservedEveness <- BAlphaCombined %>%
 ```
 
 ## Faith's Phylogenetic Diversity Statistics
-```{r}
+```{r Faiths Phylogenetic Diversity Statstics}
 # Fit a negative binomial regression model to the 'PD' (Faiths Phylogenetic Diversity) variable using the specified predictors
 RichStat.C <- glm.nb(PD ~ Sample_Type + Time + Location2 + Location2 * Time * Sample_Type, data = BAlphaCombined) 
 
@@ -570,7 +589,7 @@ ObservedFPD <- BAlphaCombined %>%
 
 ```
 ####Conjoined Figure
-```{r}
+```{r Combined Figures}
 figure1b <- ggpubr::ggarrange(bac.richness,
                                        bac.even,
                                        bac.phylo.div,
@@ -578,13 +597,12 @@ figure1b <- ggpubr::ggarrange(bac.richness,
                                        nrow = 3, ncol = 1, common.legend = T)
 
 #Arranging the figures
-
+#Note since figures are so large this is unnecessary
 ```
 
 # Beta Diversity
-## Bacterial Beta-diversity
-###### Beta-Diversity using Weighted Unifrac Only Bacteria ####
-```{r}
+## Beta-Diversity using Weighted Unifrac Only Bacteria ##
+```{r Global Weighted Unifrac}
 ##### All Samples ########
 bac.unifrac = UniFrac(BSpermosphere_RDS_CSS, weighted = TRUE) # create weighted unifrac distance matrix
 
@@ -628,7 +646,7 @@ global.uni  # Display the plot
 
 ```
 ### 0 hours; Unifrac #####
-```{r}
+```{r 0hours Weighted Unifrac}
 # Filter to time point
 bac_sperm_0 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "0") %>% 
@@ -681,7 +699,7 @@ beta.disp.0.unib <- betadisper(prok.dist.uni.0hrs, bac_sperm_0@sam_data$Sample_T
 permutest(beta.disp.0.unib)
 ```
 ### 8 hours; Unifrac #####
-```{r}
+```{r 8hours Weighted Unifrac}
 # Filter to time point
 bac_sperm_8 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "8") %>% 
@@ -734,7 +752,7 @@ beta.disp.8.unib <- betadisper(prok.dist.uni.8hrs, bac_sperm_8@sam_data$Sample_T
 permutest(beta.disp.8.unib)
 ```
 ### 12; Unifrac #####
-```{r}
+```{r 12hours Weighted Unifrac}
 # Filter to time point
 bac_sperm_12 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "12") %>% 
@@ -788,7 +806,7 @@ permutest(beta.disp.12.unib)
 
 ```
 ### 16; Unifrac #####
-```{r}
+```{r 16hours Weighted Unifrac}
 # Filter to time point
 bac_sperm_16 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "16") %>% 
@@ -841,8 +859,8 @@ beta.disp.16.unib <- betadisper(prok.dist.uni.16hrs, bac_sperm_16@sam_data$Sampl
 permutest(beta.disp.16.unib)
 
 ```
-###### Beta-Diversity using UnWeighted Unifrac Only Bacteria ####
-```{r}
+## Beta-Diversity using UnWeighted Unifrac Only Bacteria ##
+```{r Global Unweighted Unifrac}
 ##### All Samples ########
 # Create unweighted UniFrac distance matrix
 bac.unifrac = UniFrac(BSpermosphere_RDS_CSS, weighted = FALSE)
@@ -883,7 +901,7 @@ global.uni.unweighted <- ggplot(bac.ggplot.data.uni2, aes(x = Axis.1, y = Axis.2
 global.uni.unweighted  # Display the plot
 ```
 ### 0 hours; Unweighted Unifrac #####
-```{r}
+```{r 0hours Unweighted Unifrac}
 # Filter to time point
 bac_sperm_0 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "0") %>% 
@@ -936,7 +954,7 @@ beta.disp.0.uni.Ty <- betadisper(prok.dist.uni.0hrs, bac_sperm_0@sam_data$Sample
 
 ```
 ### 8 hours; Unweighted Unifrac #####
-```{r}
+```{r 8hours Unweighted Unifrac}
 bac_sperm_8 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "8") %>% 
   phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
@@ -987,7 +1005,7 @@ beta.disp.8.uni.b <- betadisper(prok.dist.uni.8hrs, bac_sperm_8@sam_data$Sample_
 permutest(beta.disp.8.uni.b)
 ```
 ### 12; Unweighted Unifrac #####
-```{r}
+```{r 12hours Unweighted Unifrac}
 bac_sperm_12 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "12") %>% 
   phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
@@ -1038,7 +1056,7 @@ beta.disp.12.uni.b <- betadisper(prok.dist.uni.12hrs, bac_sperm_12@sam_data$Samp
 permutest(beta.disp.12.uni.b)
 ```
 ### 16; Unweighted Unifrac #####
-```{r}
+```{r 16hours Unweighted Unifrac}
 bac_sperm_16 <- BSpermosphere_RDS_CSS %>% 
   subset_samples(Time == "16") %>% 
   phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
@@ -1088,8 +1106,8 @@ permutest(beta.disp.16.uni)
 beta.disp.16.uni.b <- betadisper(prok.dist.uni.16hrs, bac_sperm_16@sam_data$Sample_Type)
 permutest(beta.disp.16.uni.b)
 ```
-#combining beta diversity figures
-```{r}
+## combining beta diversity figures ##
+```{r Combining Beta Diversity Figures}
 
 UnifracCombined <- ggpubr::ggarrange(pcoa.unifrac.0hrs.new,
                                pcoa.unifrac.8hrs.new,
@@ -1102,71 +1120,7 @@ UnifracCombined <- ggpubr::ggarrange(pcoa.unifrac.0hrs.new,
                                labels = "auto",
                                nrow = 2, ncol = 4, common.legend = TRUE, legend = "bottom")
 #A-D is Weighted Unifrac, E-H is unweighted Unifrac
-
+#Arranging and Combining the Beta Diversity Figures figures
 
 ```
-
-#Steamed vs Nonsteamed Analysis#
-#Relative Abundance#
-##### Community Composition of top 20 most abundant OTUs ######
-##### Prokaryote #####
-```{r}
-#subsetting by the top taxa (20)
-topx <- top_taxa(fun.Steamed, n = 20)
-#relative abundance plot
-fun.composition <- fun.Steamed %>%
-  subset_taxa(OTU %in% topx) %>%
-  microbiome::transform("compositional") %>%
-  psmelt() %>% 
-  group_by(Trt, Time, Label) %>%
-  mutate(Time = factor(Time, levels = c("Planting", "17hrs", "V2"))) %>%
-  summarise(MeanRelAbund = mean(Abundance)) %>%
-  arrange(-MeanRelAbund) %>%
-  left_join(as.data.frame(tax_table(bac_sperm), by = "Label")) %>% 
-  ggplot(aes(Type, MeanRelAbund, fill = Label)) +
-  geom_bar(stat = "identity") +
-  theme_classic() +
-  #scale_x_discrete(labels=c('Soil no seed', 'Cotton Sp.', 'Soybean sp.'))+
-  scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
-  scale_y_continuous(labels = scales::percent) +
-  labs(x = "", y = "Relative abundance (%)",
-       title = "Prokaryote") + 
-  theme(axis.text.x = element_text(angle=45, hjust=1),
-        legend.text = element_text(face = "italic", size = 5),
-        legend.title = element_blank(),
-        legend.key.size = unit(0.3, 'cm')) +
-  facet_wrap(~Time, nrow = 1)
-bac.composition
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
