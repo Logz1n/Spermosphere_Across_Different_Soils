@@ -11,8 +11,18 @@ Soil was collected from:
   -Pennsylvania, 
   -Arkansas,
   -North Dakota,
-  -Potting soil that was autoclaved thrice
+  -Potting soil that was autoclaved thrice.
 Information of the crop fields were recorded in the metadata file (Spermosphere_16S_Metadata.csv)
+
+# Sampling
+Soil was allowed to equilibrate with 1 mL of sterile water in the growth chamber for ~ 2 hours.
+Seeds were weighed prior to planting.
+Seeds were planting in soil (in a 12 well plate), and some wells did not have seeds planted, done in replicates of 6.
+Seeds were allowed to germinate in the soil for 0, 8, 12, and 16 hours.
+Once the time limit was reached, the seed and the spermosphere soil was taken out using a 11 mm cork borer and put into a sterile coin envelope.
+Seeds were taken and weighed for total water imbibed.
+Soil was colleccted into a 2 mL sterile tube and then frozen at -80 degrees C.
+The soil was then extracted using the OmegaBiotek soil DNA extraction kit (Ivrine, CA).
 
 # Sequencing
 Both the V3 and V4 region were sequenced for the Bacterial 16S Sequences via Nextseq from SeqCenter LLC (Pittsburgh PA)
