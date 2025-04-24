@@ -1,0 +1,18 @@
+ 
+============================================================
+=====     Queued job information at submit time        =====
+============================================================
+  The submitted file is: bacteria_pipeline_8c.sh
+  The time limit is 360:00:00 HH:MM:SS.
+  The target directory is: /scratch/aubemr001/spermosphere/bacteria/run_0416
+  The memory limit is: 150gb
+  The job will start running after: 202504161057.21
+  Job Name: bacteriapipeline8c
+  Queue: -q bigmem
+  Constraints: 
+  Command typed:
+/scripts/run_script bacteria_pipeline_8c.sh     
+  Queue submit command:
+qsub -q bigmem -j oe -N bacteriapipeline8c -a 202504161057.21 -r n -M emr0118@auburn.edu -l walltime=360:00:00 -l select=ncpus=8:mpiprocs=8:mem=150000mb 
+  Job number: 262554
+ 
