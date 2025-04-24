@@ -1,0 +1,30 @@
+setting asax scratch directory
+ 
+============================================================
+=====         Summary of your script job               =====
+============================================================
+  The script file is: 08_taxonomy.sh
+  The time limit is 24:00:00 HH:MM:SS.
+  The target directory is: /scratch/aubemr001/spermosphere/bacteria/run_0416
+  The working directory is:  /scratch-local/aubemr001.08taxonomyshSCRIPT.267583.asax-pbs1
+  The memory limit is: 50gb
+  The job will start running after: 202504231147.59
+  Job Name: 08taxonomyshSCRIPT
+  Queue: -q large
+  Constraints: 
+  Using  4  cores on master node  asax011.asc.edu
+  Node list:  asax011.asc.edu asax011.asc.edu asax011.asc.edu asax011.asc.edu
+  Cores:  4
+  Command typed:
+/scripts/run_script 08_taxonomy.sh     
+  Queue submit command:
+qsub -q large -j oe -N 08taxonomyshSCRIPT -a 202504231147.59 -r n -M emr0118@auburn.edu -l walltime=24:00:00 -l select=ncpus=4:mpiprocs=4:mem=50000mb 
+vsearch v2.22.1_linux_x86_64, 503.7GB RAM, 128 cores
+https://github.com/torognes/vsearch
+
+Reading file /home/aubemr001/noel_research/db_bacteria/SILVA_138.2_SSURef_NR99_tax_silva_newheaders.fasta 100%
+747372381 nt in 510495 seqs, min 900, max 4000, avg 1464
+Counting k-mers 100%
+Creating k-mer index 100%
+Classifying sequences 100%
+Classified 349232 of 350139 sequences (99.74%)
