@@ -1,0 +1,158 @@
+---
+title: "Emergence"
+author: "Emily Roggenkamp"
+date: "2025-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(lme4)
+library(car)
+library(emmeans)
+library(lattice)
+library(stringr)
+library(ggplot2)
+```
+
+```{r}
+myFiles <- list.files(pattern=glob2rx("*Emergence.csv"),
+                      all.files=T, 
+                      full.names=F)
+myData <- lapply(myFiles, read.table, sep = ",", header = TRUE)
+emg <- do.call(rbind, myData)
+emg_sub <- emg[(emg$Location != "Arkansas" & emg$Location != "Wiregrass"),]
+```
+
+```{r}
+lm1 <- lm(Emergence ~ Location, data = emg)
+lm2 <- lm(Emergence ~ Days_Postplanting, data = emg)
+lm3 <- lm(Emergence ~ Days_Postplanting + Location, data = emg)
+glm1 <- glm(Emergence ~ Location, data = emg)
+glm2 <- glm(Emergence ~ Days_Postplanting, data = emg)
+glm3 <- glm(Emergence ~ Days_Postplanting + Location, data = emg)
+
+anova(glm3, glm2, glm1)
+anova(lm3, lm2, lm1)
+#glm4 <- glmer(Emergence ~ Days_Postplanting + Location + (1|Well/Location),
+#              family = binomial,
+#              data = emg_sub)
+```
+
+```{r}
+plot(lm3)
+car::Anova(lm3)
+plot(glm3)
+car::Anova(glm3)
+```
+
+```{r}
+lsmeans <- emmeans(glm3, ~Location) 
+Results_lsmeans <- multcomp::cld(lsmeans, alpha = 0.05, adjust = "bon", reversed = TRUE, details = TRUE, Letters = letters) # contrast with Tukey ajustment
+Results_lsmeans
+
+# Extracting the letters for the bars
+sig.diff.letters <- data.frame(Results_lsmeans$emmeans$Location, 
+                               str_trim(Results_lsmeans$emmeans$.group))
+colnames(sig.diff.letters) <- c("Location", 
+                                "Letters")
+```
+
+Cumulative proportions at each timepoint
+```{r}
+# Ensure data is ordered by time for each location and plant
+emg2 <- emg %>%
+  arrange(Location, Rep, Days_Postplanting)
+
+# For each plant, mark if it has emerged up to each time point
+emg2 <- emg2 %>%
+  group_by(Location, Well) %>%
+  mutate(cum_emerged = cummax(Emergence)) %>%
+  ungroup()
+
+cumulative_emergence <- emg2 %>%
+  group_by(Location, Days_Postplanting) %>%
+  summarise(
+    n_plants = n_distinct(Well),
+    n_emerged = sum(cum_emerged),
+    cum_prop = n_emerged / n_plants
+  ) %>%
+  ungroup()
+```
+
+```{r}
+# Find the maximal emergence count per location
+max_emergence <- cumulative_emergence %>%
+  group_by(Location) %>%
+  summarise(max_n_emerged = max(n_emerged), .groups = "drop")
+
+# Join to get the time(s) when max emergence occurs
+max_time <- cumulative_emergence %>%
+  inner_join(max_emergence, by = "Location") %>%
+  filter(n_emerged == max_n_emerged) %>%
+  group_by(Location) %>%
+  summarise(max_time = min(Days_Postplanting), .groups = "drop")
+
+# For each location, find the next timepoint after max emergence
+one_past_time <- cumulative_emergence %>%
+  inner_join(max_time, by = "Location") %>%
+  filter(Days_Postplanting > max_time) %>%
+  group_by(Location) %>%
+  summarise(one_past_time = min(Days_Postplanting), .groups = "drop")
+
+cumulative_emergence_subset <- cumulative_emergence %>%
+  left_join(one_past_time, by = "Location") %>%
+  filter(Days_Postplanting <= one_past_time)
+
+max_per_emergence <- cumulative_emergence %>%
+  group_by(Location) %>%
+  summarise(per_emg = max(cum_prop), .groups = "drop") %>%
+  left_join(sig.diff.letters)
+```
+
+```{r}
+ggplot(cumulative_emergence_subset, 
+       aes(x = Days_Postplanting, y = cum_prop, color = Location)) +
+  geom_line(size = 1.2) +
+  labs(
+    x = "Time",
+    y = "Cumulative Proportion Emerged",
+    title = "Cumulative Plant Emergence by Location Over Time"
+  ) +
+  coord_cartesian(xlim = c(0, 30)) +
+  theme_minimal()
+
+```
+
+Ploting emmeans
+```{r}
+ggplot(max_emg, aes(x = Location, y = emmean, color = Location)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
+  geom_text(aes(label = .group, y = emmean+(4*SE))) +
+  labs(
+    x = "Location",
+    y = "Estimated Marginal Mean (lsmean)",
+    title = "Estimated Marginal Means by Location"
+  ) +
+  theme_minimal()
+
+```
+
+Plotting percent emergence with stat letters
+```{r}
+ggplot(max_per_emergence, aes(x = Location, y = per_emg*100)) +
+  geom_col(aes(fill = Location)) +
+  geom_text(aes(label = Letters)) +
+  labs(
+    x = "Location",
+    y = "Percent Emergence",
+    title = "Percent Emergence by Location"
+  ) +
+  theme_minimal()
+```
