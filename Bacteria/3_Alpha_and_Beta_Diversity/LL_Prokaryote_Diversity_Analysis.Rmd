@@ -291,7 +291,7 @@ TVRphylo.diversity.join$Time.Point <- factor(TVRphylo.diversity.join$Time, level
 ```
 
 
-###Merging Steamed and Nonsteamed Alpha Diversity Data Frames###
+###Merging Locations Alpha Diversity Data Frames###
 ```{r Conjoining the Dataframes}
 # Creating new columns To distinguish the dataframes
 autophylo.diversity.join$Location2 <- "Autoclaved_Control"
@@ -497,7 +497,7 @@ ObservedRichness <- BAlphaCombined %>%
 
 ### Richness Statistics ###
 
-# Since the data is may not normally distributed because and it is count data. Fit a Poisson regression model to predict 'richness' based on 'Type.revised', 'Time', 'Trt', and their interactions
+# Since the data may not normally distributed because and it is count data. Fit a Poisson regression model to predict 'richness' based on 'Type.revised', 'Time', 'Trt', and their interactions
 RichPoisson <- glm(richness ~ Sample_Type + Time + Location2 + Location2 * Time * Sample_Type, data = BAlphaCombined, family = "poisson")
 
 # Perform an analysis of variance (ANOVA) on the fitted model
@@ -634,7 +634,7 @@ bac.ggplot.data.uni2$Time.Point <- factor(bac.ggplot.data.uni2$Time, levels = c(
 
 global.uni <- ggplot(bac.ggplot.data.uni2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type, color = Location_EC)) +
   geom_point(size = 4, alpha = 0.7) +  # Add points with specified size and transparency
-  scale_shape_manual(values = c(21, 22, 24, 25)) +  # Customize shapes for different types
+  scale_shape_manual(values = c(21, 24)) +  # Customize shapes for different types
   scale_fill_manual(values = cbbPalette) +  # Customize fill colors for different treatments
   scale_color_manual(values = cbbPalette) +  # Customize colors for different treatments
   xlab(paste("PcoA1 -", variation.axis1, "%")) +  # Label for x-axis with percentage variation 1
@@ -643,8 +643,8 @@ global.uni <- ggplot(bac.ggplot.data.uni2, aes(x = Axis.1, y = Axis.2, fill = Lo
   ggtitle("Weighted Unifrac")  # Add title to the plot
 global.uni  # Display the plot
 
-
 ```
+
 ### 0 hours; Unifrac #####
 ```{r 0hours Weighted Unifrac}
 # Filter to time point
@@ -891,7 +891,7 @@ bac.ggplot.data.uni2$Time.Point <- factor(bac.ggplot.data.uni2$Time, levels = c(
 # Create a ggplot for unweighted UniFrac distance
 global.uni.unweighted <- ggplot(bac.ggplot.data.uni2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type, color = Location_EC)) +
   geom_point(size = 4, alpha = 0.7) +  # Add points with specified size and transparency
-  scale_shape_manual(values = c(21, 22, 24, 25)) +  # Customize shapes for different types
+  scale_shape_manual(values = c(21, 24)) +  # Customize shapes for different types
   scale_fill_manual(values = cbbPalette) +  # Customize fill colors for different treatments
   scale_color_manual(values = cbbPalette) +  # Customize colors for different treatments
   xlab(paste("PcoA1 -", variation.axis1, "%")) +  # Label for x-axis with percentage variation 1
@@ -1121,6 +1121,7 @@ UnifracCombined <- ggpubr::ggarrange(pcoa.unifrac.0hrs.new,
                                nrow = 2, ncol = 4, common.legend = TRUE, legend = "bottom")
 #A-D is Weighted Unifrac, E-H is unweighted Unifrac
 #Arranging and Combining the Beta Diversity Figures figures
-
+UnifracCombined
 ```
+
 

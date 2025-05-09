@@ -118,11 +118,11 @@ bac_no_chloro <- bac_filt %>%
   core(detection = 2, prevalence = 0.20)
 
 # Number of reads to Chloroplast, Mitochondria, and unidentified
-chloro.mito.reads <- sum(sample_sums(bac.unedited))-sum(sample_sums(bac_no_chloro)) #17660 Reads
+chloro.mito.reads <- sum(sample_sums(bac.unedited))-sum(sample_sums(bac_no_chloro)) #19183708 Reads
 
 # Percent reads that were chloroplast, mito, or unidentified
 (chloro.mito.reads/sum(sample_sums(bac.unedited)))*100
-#20.1 percent
+#37.374 percent
 
 ```
 # Mock Community analysis #
@@ -308,4 +308,18 @@ saveRDS(bs.rarefied, file = "Spermosphere_Rare.rds")
 
 ```
 
+# More stringent filtering #
+```{r}
+#Load cleaned and normalized phyloseq object
+bac.css.norm <- readRDS(file = "Bacteria_RDS/Spermosphere_CSS.rds")
+#Filter out OTUS that don't appear > 5 times in at least 3% of the samples
+bac_filter <- genefilter_sample(bac.css.norm, filterfun_sample(function(x) x > 5), A=.03*nsamples(bac.css.norm))
+bac.pruned <- prune_taxa(bac_filter, bac.css.norm)
 
+bac.css.norm #4947 taxa
+bac.pruned #2272 taxa
+
+###### RDS of Non-normalized Prokaryote data with more stringent filtering ######
+# Save an object to a file
+saveRDS(bac.pruned, file = "Bacteria_RDS/Spermosphere_CSS_filt.rds")
+```
