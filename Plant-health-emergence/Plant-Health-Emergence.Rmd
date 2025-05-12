@@ -50,7 +50,7 @@ glm2 <- glm(Emergence ~ Days_Postplanting, family = binomial, data = emg)
 glm3 <- glm(Emergence ~ Days_Postplanting + Location, 
             family = binomial, data = emg)
 glm4 <- brglm(Emergence ~ Days_Postplanting + Location, 
-              family = binomial("logit"), data = emg) 
+              family = binomial("logit"), data = emg)
           #biased reduced? help with arkansas all 0s
 
 anova(glm4, glm3)
@@ -149,21 +149,6 @@ emg_plot1 <- ggplot(cumulative_emergence,
 emg_plot1
 ```
 
-Ploting emmeans - not necessary
-```{r}
-ggplot(max_emg, aes(x = Location, y = emmean, color = Location)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
-  geom_text(aes(label = .group, y = emmean+(4*SE))) +
-  labs(
-    x = "Location",
-    y = "Estimated Marginal Mean (lsmean)",
-    title = "Estimated Marginal Means by Location"
-  ) +
-  theme_minimal()
-
-```
-
 Plotting percent emergence with stat letters
 ```{r}
 emg_plot2 <- ggplot(max_per_emergence, aes(x = Location, y = per_emg*100)) +
@@ -186,5 +171,5 @@ emg_plot2
 ```
 
 ```{r}
-ggsave(plot = emg_plot2, filename = "emergence.png", units = "mm", width = 150, height = 100, dpi = 600)
+#ggsave(plot = emg_plot2, filename = "emergence.png", units = "mm", width = 150, height = 100, dpi = 600)
 ```
