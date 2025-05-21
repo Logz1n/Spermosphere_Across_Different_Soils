@@ -35,7 +35,7 @@ lm2 <- lm(Emergence ~ Days_Postplanting, data = emg)
 lm3 <- lm(Emergence ~ Days_Postplanting + Location, data = emg)
 glm1 <- glm(Emergence ~ Location, data = emg)
 glm2 <- glm(Emergence ~ Days_Postplanting, data = emg)
-glm3 <- glm(Emergence ~ Days_Postplanting + Location, data = emg)
+glm3 <- glm(Emergence ~ Days_Postplanting + Location, data = emg, family = "logistic")
 
 anova(glm3, glm2, glm1)
 anova(lm3, lm2, lm1)
@@ -156,3 +156,31 @@ ggplot(max_per_emergence, aes(x = Location, y = per_emg*100)) +
   ) +
   theme_minimal()
 ```
+
+#Plant Health Measurements
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
