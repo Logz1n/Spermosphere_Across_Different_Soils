@@ -453,6 +453,8 @@ bac.even
 
 #A classic theme is applied to the plot with theme_classic(), giving it a clean and professional look. Finally, the legend text is customized to be italic and sized at 8, and the legend title is removed using theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank()). The plot is then printed by calling bac.even, displaying the final visualization.
 
+BAlphaCombined$Time <- factor(BAlphaCombined$Time, levels = c("0", "8", "12","16"))
+
 bac.even <- BAlphaCombined %>%
   ggplot(aes(x = Sample_Type, y = even, color = Time)) +
   facet_wrap(~factor(Location2)) +

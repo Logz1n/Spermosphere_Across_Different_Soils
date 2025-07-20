@@ -42,6 +42,10 @@ anova(lm3, lm2, lm1)
 #glm4 <- glmer(Emergence ~ Days_Postplanting + Location + (1|Well/Location),
 #              family = binomial,
 #              data = emg_sub)
+glm3$deviance / glm3$df.residual #result less than 1, 0.1740763
+
+summary(glm3)
+
 ```
 
 ```{r}
@@ -56,6 +60,7 @@ lsmeans <- emmeans(glm3, ~Location)
 Results_lsmeans <- multcomp::cld(lsmeans, alpha = 0.05, adjust = "bon", reversed = TRUE, details = TRUE, Letters = letters) # contrast with Tukey ajustment
 Results_lsmeans
 
+max_emg <- Results_lsmeans$emmeans
 # Extracting the letters for the bars
 sig.diff.letters <- data.frame(Results_lsmeans$emmeans$Location, 
                                str_trim(Results_lsmeans$emmeans$.group))
@@ -126,7 +131,6 @@ ggplot(cumulative_emergence_subset,
   ) +
   coord_cartesian(xlim = c(0, 30)) +
   theme_minimal()
-
 ```
 
 Ploting emmeans
@@ -155,4 +159,5 @@ ggplot(max_per_emergence, aes(x = Location, y = per_emg*100)) +
     title = "Percent Emergence by Location"
   ) +
   theme_minimal()
+
 ```
