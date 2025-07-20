@@ -1,0 +1,1009 @@
+---
+title: "Fungi_Diversity_Analysis"
+author: "Emily Roggenkamp"
+date: "2025-06-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Loading Libraries and Pallettes, warning=FALSE, message=FALSE}
+##Loading Libraries ##
+
+library(BiocManager)
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+library(metagenomeSeq)
+library(ggpubr)
+library(Biostrings)
+library(microbiome)
+library(ggrepel)
+library(decontam)
+library(picante) #For Faiths Phylogentic Diversity
+library(MASS) #For Linear Modeling
+library(betareg) #For Linear Modeling
+library(emmeans)
+
+##### Set global options #####
+# no scientific notation
+options(scipen=10000) 
+#Since RMD files moved the working directories needed to be specified
+
+# color blind pallets used throughout 
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ibm.cbb <- c("#648FFF", "#785EF0", "#DC267F", "#FE6100", "#FFB000")
+tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "#AA4499", "#882255")
+library(RColorBrewer)
+n <- 40
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+```
+
+## Read in the RDS files #
+```{r Reading in RDS}
+###Fungal RDS
+#FSpermosphere_RDS_CSS <- readRDS(file = "Fungi_RDS/Spermosphere_Fungi_CSS_filt.rds")
+fun.css.norm <- readRDS(file = "Spermosphere_Fungi_CSS_filt.rds")
+##Using Normalized Filtered Reads
+#FSpermosphere_RDS_NoNorm <- readRDS(file = "Fungi_RDS/Spermosphere_Fungi_clean.rds")
+fun_sperm <- readRDS(file = "Spermosphere_Fungi_clean.rds") ##Using Non-normalized Reads
+```
+
+# Alpha Diversity #
+
+Richness and Pielou's Evenness
+
+```{r}
+fun_sperm@sam_data$shannon <- estimate_richness(fun_sperm, measures=c("Shannon"))$Shannon
+fun_sperm@sam_data$invsimpson <- estimate_richness(fun_sperm, measures=c("InvSimpson"))$InvSimpson
+fun_sperm@sam_data$simpson <- estimate_richness(fun_sperm, measures=c("Simpson"))$Simpson
+fun_sperm@sam_data$richness <- estimate_richness(fun_sperm, measures=c("Observed"))$Observed
+fun_sperm@sam_data$even <- fun_sperm@sam_data$shannon/log(fun_sperm@sam_data$richness)
+
+sample.data.fungi <- data.frame(fun_sperm@sam_data)
+
+sample.data.fungi$Time <- factor(sample.data.fungi$Time, levels = c("0", "8", "12", "16"))
+
+####### Richness over time #######
+fungi.richness <- sample.data.fungi %>%
+  ggplot(aes(x = Sample_Type, y = richness, color = Time)) +
+  facet_wrap(~Location_EC) +
+  geom_boxplot(position = position_dodge2(0.85, preserve = "single")) + 
+  geom_point(position=position_jitterdodge(0.05)) +
+  #geom_pwc(aes(group = Sample_Type), method = "t_test", label = "p.adj.format") +
+  #stat_compare_means(method = "t.test") +
+  scale_fill_manual(values = cbbPalette ) +
+  color_palette(cbbPalette) +
+  #stat_summary(fun = mean,geom="line") +
+  #stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5) +
+  ylab("Richness") +
+  xlab("Type of Environment")+
+  #geom_jitter(width = 0.1, alpha = 0.8)+
+  #scale_color_manual(values=cbbPalette, name = "", labels = c("Planting", "17hrs", "V2")) +  
+  #stat_compare_means(method = "kruskal", hide.ns = TRUE) +
+  theme_classic()+
+  theme(legend.text = element_text(face = "italic", size = 12), legend.title = element_blank())
+fungi.richness
+
+####### funterial evenness; Figure 2a ########
+fungi.even <- sample.data.fungi %>%
+  ggplot(aes(x = Sample_Type, y = even, color = Time)) +
+  facet_wrap(~Location_EC) +
+  #scale_y_continuous(limits = c(0.45, 0.85), breaks = seq(0.45, 0.85, 0.05)) +
+  #stat_compare_means(method = "t.test") +
+  geom_boxplot(position = position_dodge2(0.85, preserve = "single")) + 
+  geom_point(position=position_jitterdodge(0.05)) +
+  scale_fill_manual(values = cbbPalette ) +
+  color_palette(cbbPalette) +
+  #stat_summary(fun.y=mean,geom="bar", position = "dodge", width = 0.5) +
+  #stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5) +
+  ylab("Pielou's evenness") +
+  xlab("Type of Environment")+
+  #scale_color_manual(values=cbbPalette, name = "", labels = c("Planting", "17hrs", "V2")) +  
+  theme_classic() +
+  theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
+fungi.even
+
+#ggsave(filename = "even_usearch25.png", plot = fungi.even, device = "png", width = 178, height = 178, units="mm", dpi = 600)
+```
+
+# Beta Diversity #
+
+```{r Global Bray}
+fungi.bray = phyloseq::distance(fun.css.norm, "bray")
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12325)
+adonis2(fungi.bray~Location_EC * Sample_Type * Time, as(sample_data(fun.css.norm), "data.frame"))
+
+global.ord.bray <- phyloseq::ordinate(fun.css.norm, "MDS", "bray")
+variation.axis1.bray <- round(100*global.ord.bray$values$Relative_eig[[1]], 2) # % variation on axis one
+variation.axis2.bray <- round(100*global.ord.bray$values$Relative_eig[[2]], 2) # % variation on axis two
+
+fungi.ggplot.data.bray <- data.frame(global.ord.bray$vectors) # get the point values
+fungi.ggplot.data.bray$Sample_ID <- rownames(fungi.ggplot.data.bray) # add rownames
+fungi.ggplot.data.bray2 <- left_join(data.frame(fun.css.norm@sam_data), fungi.ggplot.data.bray,  by = "Sample_ID") # add rest of metadata
+fungi.ggplot.data.bray2$Time <- factor(fungi.ggplot.data.bray2$Time, levels = c("0", "8", "12", "16")) # order the time points in chronological order
+
+global.bray.fungi <- ggplot(fungi.ggplot.data.bray2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.8) +  # Add points with specified size and transparency
+  scale_shape_manual(values = c(21, 24)) +  # Customize shapes for different types
+  scale_fill_manual(values = cbbPalette) +  # Customize fill colors for different treatments
+  xlab(paste("PcoA1 -", variation.axis1.bray, "%")) +  # Label for x-axis with percentage variation 1
+  ylab(paste("PcoA2 -", variation.axis2.bray, "%")) +  # Label for y-axis with percentage variation 2
+  theme_bw() +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle("Bray-Curtis")
+
+global.bray.fungi
+```
+
+```{r Global Jaccard}
+fungi.jac = phyloseq::distance(fun.css.norm, "jaccard")
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12325)
+adonis2(fungi.jac~Location_EC * Sample_Type * Time, as(sample_data(fun.css.norm), "data.frame"))
+
+global.ord.jac <- phyloseq::ordinate(fun.css.norm, "MDS", "jaccard")
+variation.axis1.jac <- round(100*global.ord.jac$values$Relative_eig[[1]], 2) # % variation on axis one
+variation.axis2.jac <- round(100*global.ord.jac$values$Relative_eig[[2]], 2) # % variation on axis two
+
+fungi.ggplot.data.jac <- data.frame(global.ord.jac$vectors) # get the point values
+fungi.ggplot.data.jac$Sample_ID <- rownames(fungi.ggplot.data.jac) # add rownames
+fungi.ggplot.data.jac2 <- left_join(data.frame(fun.css.norm@sam_data), fungi.ggplot.data.jac,  by = "Sample_ID") # add rest of metadata
+fungi.ggplot.data.jac2$Time <- factor(fungi.ggplot.data.jac2$Time, levels = c("0", "8", "12", "16")) # order the time points in chronological order
+
+global.jac.fungi <- ggplot(fungi.ggplot.data.jac2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.8) +  # Add points with specified size and transparency
+  scale_shape_manual(values = c(21, 24)) +  # Customize shapes for different types
+  scale_fill_manual(values = cbbPalette) +  # Customize fill colors for different treatments
+  xlab(paste("PcoA1 -", variation.axis1.jac, "%")) +  # Label for x-axis with percentage variation 1
+  ylab(paste("PcoA2 -", variation.axis2.jac, "%")) +  # Label for y-axis with percentage variation 2
+  theme_bw() +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle("Jaccard")
+
+global.jac.fungi
+```
+
+```{r Combine Global Beta Diversity}
+beta <- ggarrange(global.jac.fungi, 
+          global.bray.fungi, nrow = 1, ncol = 2, 
+          labels = "auto", common.legend = TRUE, legend = "bottom")
+
+beta
+
+#ggsave(filename = "beta_usearch25.png", plot = beta, device = "png", width = 250, height = 150, units="mm", dpi = 600)
+```
+
+# Looking at separate times
+
+### 0 hours; Bray #####
+```{r 0hours Bray}
+# Filter to time point
+fun_sperm_0 <- fun.css.norm %>% 
+  subset_samples(Time == "0") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+fungi.bray.dist.0hrs = phyloseq::distance(fun_sperm_0, "bray")
+adonis.0.bray <- adonis2(fungi.bray.dist.0hrs ~ Location_EC * Sample_Type, as(sample_data(fun_sperm_0), "data.frame"))  # Perform PERMANOVA to test for significant changes
+adonis.0.bray  # Display PERMANOVA results
+
+# The R2 is the variation due to different factors 
+# pvalue is the p-value for the factor
+pvalue <- adonis.0.bray$`Pr(>F)`[[1]]
+R2 <- adonis.0.bray$R2[[1]]
+
+# Plotting
+ordination.bray.pcoa.0hrs <- ordinate(fun_sperm_0, "PCoA", distance = fungi.bray.dist.0hrs)  # Calculate the resemblance and ordinate using PCoA
+bray.0.values <- data.frame(ordination.bray.pcoa.0hrs$values)
+
+# Percent variation
+variation.axis1.0.bray <- round(100 * bray.0.values$Relative_eig[[1]], 2)
+variation.axis2.0.bray <- round(100 * bray.0.values$Relative_eig[[2]], 2)
+
+# Data from ordinations
+bray.0.vectors <- data.frame(ordination.bray.pcoa.0hrs$vectors)  # Positions of your points on the PCoA graph
+bray.0.vectors$Sample_ID <- rownames(bray.0.vectors)
+bray.0.vectors2 <- left_join(data.frame(fun_sperm_0@sam_data), bray.0.vectors, by = "Sample_ID")
+
+# Create a ggplot for bray distance at 0 hours
+pcoa.bray.0hrs.new <- ggplot(bray.0.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.7) +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_manual(values = cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.0.bray, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.0.bray, "%")) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle(paste("Planting")) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"))
+pcoa.bray.0hrs.new
+
+# Dispersion for each Time-Point
+beta.disp.0.bray <- betadisper(fungi.bray.dist.0hrs, fun_sperm_0@sam_data$Location_EC)
+permutest(beta.disp.0.bray)
+beta.disp.0.brayf <- betadisper(fungi.bray.dist.0hrs, fun_sperm_0@sam_data$Sample_Type)
+permutest(beta.disp.0.brayf)
+```
+### 8 hours; Bray #####
+```{r 8hours bray}
+# Filter to time point
+fun_sperm_8 <- fun.css.norm %>% 
+  subset_samples(Time == "8") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+fungi.bray.dist.8hrs = phyloseq::distance(fun_sperm_8, "bray")  # Create distance matrix
+adonis.8.bray <- adonis2(fungi.bray.dist.8hrs ~ Location_EC * Sample_Type, as(sample_data(fun_sperm_8), "data.frame"))  # Perform PERMANOVA to test for significant changes
+adonis.8.bray  # Display PERMANOVA results
+
+# The R2 is the variation due to different factors 
+# pvalue is the p-value for the factor
+pvalue <- adonis.8.bray$`Pr(>F)`[[1]]
+R2 <- adonis.8.bray$R2[[1]]
+
+# Plotting
+ordination.bray.pcoa.8hrs <- ordinate(fun_sperm_8, "PCoA", distance = fungi.bray.dist.8hrs)  # Calculate the resemblance and ordinate using PCoA
+bray.8.values <- data.frame(ordination.bray.pcoa.8hrs$values)
+
+# Percent variation
+variation.axis1.8.bray <- round(100 * bray.8.values$Relative_eig[[1]], 2)
+variation.axis2.8.bray <- round(100 * bray.8.values$Relative_eig[[2]], 2)
+
+# Data from ordinations
+bray.8.vectors <- data.frame(ordination.bray.pcoa.8hrs$vectors)  # Positions of your points on the PCoA graph
+bray.8.vectors$Sample_ID <- rownames(bray.8.vectors)
+bray.8.vectors2 <- left_join(data.frame(fun_sperm_8@sam_data), bray.8.vectors, by = "Sample_ID")
+
+# Create a ggplot for bray distance at 8 hours
+pcoa.bray.8hrs.new <- ggplot(bray.8.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.7) +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_manual(values = cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.8.bray, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.8.bray, "%")) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle(paste("8 Hours Postplanting")) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"))
+pcoa.bray.8hrs.new
+
+# Dispersion for each Time-Point
+beta.disp.8.bray <- betadisper(fungi.bray.dist.8hrs, fun_sperm_8@sam_data$Location_EC)
+permutest(beta.disp.8.bray)
+beta.disp.8.brayb <- betadisper(fungi.bray.dist.8hrs, fun_sperm_8@sam_data$Sample_Type)
+permutest(beta.disp.8.brayb)
+```
+### 12; Bray #####
+```{r 12hours bray}
+# Filter to time point
+fun_sperm_12 <- fun.css.norm %>% 
+  subset_samples(Time == "12") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+fungi.bray.dist.12hrs = phyloseq::distance(fun_sperm_12, "bray")  # Create distance matrix
+adonis.12.bray <- adonis2(fungi.bray.dist.12hrs ~ Location_EC * Sample_Type, as(sample_data(fun_sperm_12), "data.frame"))  # Perform PERMANOVA to test for significant changes
+adonis.12.bray  # Display PERMANOVA results
+
+# The R2 is the variation due to different factors 
+# pvalue is the p-value for the factor
+pvalue <- adonis.12.bray$`Pr(>F)`[[1]]
+R2 <- adonis.12.bray$R2[[1]]
+
+# Plotting
+ordination.bray.pcoa.12hrs <- ordinate(fun_sperm_12, "PCoA", distance = fungi.bray.dist.12hrs)  # Calculate the resemblance and ordinate using PCoA
+bray.12.values <- data.frame(ordination.bray.pcoa.12hrs$values)
+
+# Percent variation
+variation.axis1.12.bray <- round(100 * bray.12.values$Relative_eig[[1]], 2)
+variation.axis2.12.bray <- round(100 * bray.12.values$Relative_eig[[2]], 2)
+
+# Data from ordinations
+bray.12.vectors <- data.frame(ordination.bray.pcoa.12hrs$vectors)  # Positions of your points on the PCoA graph
+bray.12.vectors$Sample_ID <- rownames(bray.12.vectors)
+bray.12.vectors2 <- left_join(data.frame(fun_sperm_12@sam_data), bray.12.vectors, by = "Sample_ID")
+
+# Create a ggplot for bray distance at 12 growth stage
+pcoa.bray.12hrs.new <- ggplot(bray.12.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.7) +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_manual(values = cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.12.bray, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.12.bray, "%")) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle(paste("12 hrs post planting")) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"))
+pcoa.bray.12hrs.new
+
+# Dispersion for each Time-Point
+beta.disp.12.bray <- betadisper(fungi.bray.dist.12hrs, fun_sperm_12@sam_data$Location_EC)
+permutest(beta.disp.12.bray)
+beta.disp.12.brayb <- betadisper(fungi.bray.dist.12hrs, fun_sperm_12@sam_data$Sample_Type)
+permutest(beta.disp.12.brayb)
+
+```
+### 16; Bray #####
+```{r 16hours bray}
+# Filter to time point
+fun_sperm_16 <- fun.css.norm %>% 
+  subset_samples(Time == "16") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+fungi.bray.dist.16hrs = phyloseq::distance(fun_sperm_16, "bray")  # Create distance matrix
+adonis.16.bray <- adonis2(fungi.bray.dist.16hrs ~ Location_EC * Sample_Type, as(sample_data(fun_sperm_16), "data.frame"))  # Perform PERMANOVA to test for significant changes
+adonis.16.bray  # Display PERMANOVA results
+
+# The R2 is the variation due to different factors 
+# pvalue is the p-value for the factor
+pvalue <- adonis.16.bray$`Pr(>F)`[[1]]
+R2 <- adonis.16.bray$R2[[1]]
+
+# Plotting
+ordination.bray.pcoa.16hrs <- ordinate(fun_sperm_16, "PCoA", distance = fungi.bray.dist.16hrs)  # Calculate the resemblance and ordinate using PCoA
+bray.16.values <- data.frame(ordination.bray.pcoa.16hrs$values)
+
+# Percent variation
+variation.axis1.16.bray <- round(100 * bray.16.values$Relative_eig[[1]], 2)
+variation.axis2.16.bray <- round(100 * bray.16.values$Relative_eig[[2]], 2)
+
+# Data from ordinations
+bray.16.vectors <- data.frame(ordination.bray.pcoa.16hrs$vectors)  # Positions of your points on the PCoA graph
+bray.16.vectors$Sample_ID <- rownames(bray.16.vectors)
+bray.16.vectors2 <- left_join(data.frame(fun_sperm_16@sam_data), bray.16.vectors, by = "Sample_ID")
+
+# Create a ggplot for bray distance at 16 growth stage
+pcoa.bray.16hrs.new <- ggplot(bray.16.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.7) +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_manual(values = cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.16.bray, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.16.bray, "%")) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle(paste("16 hrs post planting")) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"))
+pcoa.bray.16hrs.new
+
+# Dispersion for each Time-Point
+beta.disp.16.bray <- betadisper(fungi.bray.dist.16hrs, fun_sperm_16@sam_data$Location_EC)
+permutest(beta.disp.16.bray)
+beta.disp.16.brayb <- betadisper(fungi.bray.dist.16hrs, fun_sperm_16@sam_data$Sample_Type)
+permutest(beta.disp.16.brayb)
+
+```
+
+### 0 hours; Jaccard #####
+```{r 0hours Jaccard}
+# Filter to time point
+fun_sperm_0 <- fun.css.norm %>% 
+  subset_samples(Time == "0") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)
+fungi.jac.dist.0hrs = phyloseq::distance(fun_sperm_0, "jaccard")  # Create distance matrix
+adonis.0.jac <- adonis2(fungi.jac.dist.0hrs ~ Location_EC * Sample_Type, as(sample_data(fun_sperm_0), "data.frame"))  # Perform PERMANOVA to test for significant changes
+adonis.0.jac  # Display PERMANOVA results
+
+# The R2 is the variation due to different factors 
+# pvalue is the p-value for the factor
+pvalue <- adonis.0.jac$`Pr(>F)`[[1]]
+R2 <- adonis.0.jac$R2[[1]]
+
+# Plotting
+ordination.jaccard.pcoa.0hrs <- ordinate(fun_sperm_0, "PCoA", distance = fungi.jac.dist.0hrs)  # Calculate the resemblance and ordinate using PCoA
+jac.0.values <- data.frame(ordination.jaccard.pcoa.0hrs$values)
+
+# Percent variation
+variation.axis1.0.jac <- round(100 * jac.0.values$Relative_eig[[1]], 2)
+variation.axis2.0.jac <- round(100 * jac.0.values$Relative_eig[[2]], 2)
+
+# Data from ordinations
+jac.0.vectors <- data.frame(ordination.jaccard.pcoa.0hrs$vectors)  # Positions of your points on the PCoA graph
+jac.0.vectors$Sample_ID <- rownames(jac.0.vectors)
+jac.0.vectors2 <- left_join(data.frame(fun_sperm_0@sam_data), jac.0.vectors, by = "Sample_ID")
+
+# Create a ggplot for Jaccard distance at 0 hours
+pcoa.jaccard.0hrs.new <- ggplot(jac.0.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size = 4, alpha = 0.7) +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_manual(values = cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.0.jac, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.0.jac, "%")) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  ggtitle(paste("Planting")) +
+  theme_bw() +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.key = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"))
+pcoa.jaccard.0hrs.new
+
+# Dispersion for each Time-Point
+beta.disp.0.jac <- betadisper(fungi.jac.dist.0hrs, fun_sperm_0@sam_data$Location_EC)
+permutest(beta.disp.0.jac)
+beta.disp.0.jac.Ty <- betadisper(fungi.jac.dist.0hrs, fun_sperm_0@sam_data$Sample_Type)
+
+```
+### 8 hours; Jaccard #####
+```{r 8hours Jaccard}
+fun_sperm_8 <- fun.css.norm %>% 
+  subset_samples(Time == "8") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)
+fungi.jac.dist.8hrs = phyloseq::distance(fun_sperm_8, "jaccard")
+adonis.8.jac <- adonis2(fungi.jac.dist.8hrs~Location_EC*Sample_Type, as(sample_data(fun_sperm_8), "data.frame")) #Are there significant changes?
+adonis.8.jac
+# The R2 is the variation due to different factors 
+# pvalue is the pvalue for the factor
+
+pvalue <- adonis.8.jac$`Pr(>F)`[[1]]
+R2 <- adonis.8.jac$R2[[1]]
+
+# plotting
+ordination.jaccard.pcoa.8hrs <- ordinate(fun_sperm_8, "PCoA", distance = fungi.jac.dist.8hrs) # calculate the resemblance and ordinate using PCoA
+jac.8.values <- data.frame(ordination.jaccard.pcoa.8hrs$values)
+
+# percent variation
+variation.axis1.8.jac <- round(100*jac.8.values$Relative_eig[[1]], 2)
+variation.axis2.8.jac <- round(100*jac.8.values$Relative_eig[[2]], 2)
+
+# data from ordinations
+jac.8.vectors <- data.frame(ordination.jaccard.pcoa.8hrs$vectors) # positions of your points on the pcoa graph
+jac.8.vectors$Sample_ID <- rownames(jac.8.vectors)
+jac.8.vectors2 <- left_join(data.frame(fun_sperm_8@sam_data), jac.8.vectors,  by = "Sample_ID")
+  
+  pcoa.jaccard.8hrs.new <- ggplot(jac.8.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size=4, alpha = 0.7) +
+  scale_shape_manual(values = c(21,24)) +
+  scale_fill_manual(values=cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.8.jac, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.8.jac, "%")) +
+  guides(fill=guide_legend(override.aes=list(shape=21))) +
+  ggtitle(paste("8 Hours Postplanting")) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        legend.title=element_blank(),
+        legend.key = element_blank(),
+        plot.title=element_text(size=10, face = "bold"))
+pcoa.jaccard.8hrs.new
+
+#Dispersion for each Time-Point
+beta.disp.8.jac <- betadisper(fungi.jac.dist.8hrs, fun_sperm_8@sam_data$Location_EC)
+permutest(beta.disp.8.jac)
+beta.disp.8.jac.b <- betadisper(fungi.jac.dist.8hrs, fun_sperm_8@sam_data$Sample_Type)
+permutest(beta.disp.8.jac.b)
+```
+### 12; Jaccard #####
+```{r 12hours Jaccard}
+fun_sperm_12 <- fun.css.norm %>% 
+  subset_samples(Time == "12") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)
+fungi.jac.dist.12hrs = phyloseq::distance(fun_sperm_12, "jaccard") # create distance matrix
+adonis.12.jac <- adonis2(fungi.jac.dist.12hrs~Location_EC*Sample_Type, as(sample_data(fun_sperm_12), "data.frame")) #Are there significant changes?
+adonis.12.jac
+# The R2 is the variation due to different factors 
+# pvalue is the pvalue for the factor
+
+pvalue <- adonis.12.jac$`Pr(>F)`[[1]]
+R2 <- adonis.12.jac$R2[[1]]
+
+# ploting
+ordination.jaccard.pcoa.12hrs <- ordinate(fun_sperm_12, "PCoA", distance = fungi.jac.dist.12hrs) # calculate the resemblance and ordinate using PCoA
+jac.12.values <- data.frame(ordination.jaccard.pcoa.12hrs$values)
+
+# percent variation
+variation.axis1.12.jac <- round(100*jac.12.values$Relative_eig[[1]], 2)
+variation.axis2.12.jac <- round(100*jac.12.values$Relative_eig[[2]], 2)
+
+# data from ordinations
+jac.12.vectors <- data.frame(ordination.jaccard.pcoa.12hrs$vectors) # positions of your points on the pcoa graph
+jac.12.vectors$Sample_ID <- rownames(jac.12.vectors)
+jac.12.vectors2 <- left_join(data.frame(fun_sperm_12@sam_data), jac.12.vectors,  by = "Sample_ID")
+
+  pcoa.jaccard.12hrs.new <- ggplot(jac.12.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size=4, alpha = 0.7) +
+  scale_shape_manual(values = c(21,24)) +
+  scale_fill_manual(values=cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.12.jac, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.12.jac, "%")) +
+  guides(fill=guide_legend(override.aes=list(shape=21))) +
+  ggtitle(paste("12 Hours Postplanting")) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        legend.title=element_blank(),
+        legend.key = element_blank(),
+        plot.title=element_text(size=10, face = "bold"))
+pcoa.jaccard.12hrs.new
+
+#Dispersion for each Time-Point
+beta.disp.12.jac <- betadisper(fungi.jac.dist.12hrs, fun_sperm_12@sam_data$Location_EC)
+permutest(beta.disp.12.jac)
+beta.disp.12.jac.b <- betadisper(fungi.jac.dist.12hrs, fun_sperm_12@sam_data$Sample_Type)
+permutest(beta.disp.12.jac.b)
+```
+### 16; Jaccard #####
+```{r 16hours Jaccard}
+fun_sperm_16 <- fun.css.norm %>% 
+  subset_samples(Time == "16") %>% 
+  phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)
+fungi.jac.dist.16hrs = phyloseq::distance(fun_sperm_16, "jaccard") # create distance matrix
+adonis.16.jac <- adonis2(fungi.jac.dist.16hrs~Location_EC*Sample_Type, as(sample_data(fun_sperm_16), "data.frame")) #Are there significant changes?
+adonis.16.jac
+# The R2 is the variation due to different factors 
+# pvalue is the pvalue for the factor
+
+pvalue <- adonis.16.jac$`Pr(>F)`[[1]]
+R2 <- adonis.16.jac$R2[[1]]
+
+# ploting
+ordination.jaccard.pcoa.16hrs <- ordinate(fun_sperm_16, "PCoA", distance = fungi.jac.dist.16hrs) # calculate the resemblance and ordinate using PCoA
+jac.16.values <- data.frame(ordination.jaccard.pcoa.16hrs$values)
+
+# percent variation
+variation.axis1.16.jac <- round(100*jac.16.values$Relative_eig[[1]], 2)
+variation.axis2.16.jac <- round(100*jac.16.values$Relative_eig[[2]], 2)
+
+# data from ordinations
+jac.16.vectors <- data.frame(ordination.jaccard.pcoa.16hrs$vectors) # positions of your points on the pcoa graph
+jac.16.vectors$Sample_ID <- rownames(jac.16.vectors)
+jac.16.vectors2 <- left_join(data.frame(fun_sperm_16@sam_data), jac.16.vectors,  by = "Sample_ID")
+
+  pcoa.jaccard.16hrs.new <- ggplot(jac.16.vectors2, aes(x = Axis.1, y = Axis.2, fill = Location_EC, shape = Sample_Type)) +
+  geom_point(size=4, alpha = 0.7) +
+  scale_shape_manual(values = c(21,24)) +
+  scale_fill_manual(values=cbbPalette) +
+  xlab(paste("PcoA1 -", variation.axis1.16.jac, "%")) + 
+  ylab(paste("PcoA2 -", variation.axis2.16.jac, "%")) +
+  guides(fill=guide_legend(override.aes=list(shape=21))) +
+  ggtitle(paste("16 Hours Postplanting")) +
+  theme_bw() +
+  theme(legend.position="bottom",
+        legend.title=element_blank(),
+        legend.key = element_blank(),
+        plot.title=element_text(size=10, face = "bold"))
+pcoa.jaccard.16hrs.new
+
+#Dispersion for each Time-Point
+beta.disp.16.jac <- betadisper(fungi.jac.dist.16hrs, fun_sperm_16@sam_data$Location_EC)
+permutest(beta.disp.16.jac)
+beta.disp.16.jac.b <- betadisper(fungi.jac.dist.16hrs, fun_sperm_16@sam_data$Sample_Type)
+permutest(beta.disp.16.jac.b)
+```
+## combining beta diversity figures ##
+```{r Combining Beta Diversity Figures}
+
+BetaCombined <- ggpubr::ggarrange(pcoa.bray.0hrs.new,
+                               pcoa.bray.8hrs.new,
+                               pcoa.bray.12hrs.new,
+                               pcoa.bray.16hrs.new,
+                               pcoa.jaccard.0hrs.new,
+                               pcoa.jaccard.8hrs.new,
+                               pcoa.jaccard.12hrs.new,
+                               pcoa.jaccard.16hrs.new,
+                               labels = "auto",
+                               nrow = 2, ncol = 4, common.legend = TRUE, legend = "bottom")
+#A-D is Bray, E-H is Jaccard
+#Arranging and Combining the Beta Diversity Figures figures
+BetaCombined
+
+#ggsave(filename = "Fungi_Beta.png", plot = BetaCombined, device = "png", width = 300, height = 200, units="mm", dpi = 600)
+```
+
+# PERMANOVA #
+
+Let's look at each location separately
+
+```{r Subsetting by Location}
+fun.Auto <- subset_samples(fun.css.norm, Location_EC == "Autoclaved_Potting_Soil") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.EV <- subset_samples(fun.css.norm, Location_EC == "EVSmith_EC") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.MI <- subset_samples(fun.css.norm, Location_EC == "Michigan") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.ND <- subset_samples(fun.css.norm, Location_EC == "N_Dakota") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.Wire <- subset_samples(fun.css.norm, Location_EC == "Wiregrass_EC") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.PA <- subset_samples(fun.css.norm, Location_EC == "Pennsylvania") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.AR <- subset_samples(fun.css.norm, Location_EC == "Arkansas") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.TVR <- subset_samples(fun.css.norm, Location_EC == "TVRec_EC") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+```
+
+```{r 0 hr}
+fun.Auto.0 <- fun.Auto %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.EV.0 <- fun.EV %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.MI.0 <- fun.MI %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.ND.0 <- fun.ND %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.Wire.0 <- fun.Wire %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.PA.0 <- fun.PA %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.AR.0 <- fun.AR %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.TVR.0 <- fun.TVR %>% subset_samples(Time == "0") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+```
+
+```{r 8 hr}
+fun.Auto.8 <- fun.Auto %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.EV.8 <- fun.EV %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.MI.8 <- fun.MI %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.ND.8 <- fun.ND %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.Wire.8 <- fun.Wire %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.PA.8 <- fun.PA %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.AR.8 <- fun.AR %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.TVR.8 <- fun.TVR %>% subset_samples(Time == "8") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+```
+
+```{r 12 hr}
+fun.Auto.12 <- fun.Auto %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.EV.12 <- fun.EV %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.MI.12 <- fun.MI %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.ND.12 <- fun.ND %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.Wire.12 <- fun.Wire %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.PA.12 <- fun.PA %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.AR.12 <- fun.AR %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.TVR.12 <- fun.TVR %>% subset_samples(Time == "12") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+```
+
+```{r 16 hr}
+fun.Auto.16 <- fun.Auto %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.EV.16 <- fun.EV %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.MI.16 <- fun.MI %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.ND.16 <- fun.ND %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.Wire.16 <- fun.Wire %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.PA.16 <- fun.PA %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.AR.16 <- fun.AR %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+fun.TVR.16 <- fun.TVR %>% subset_samples(Time == "16") %>% phyloseq::filter_taxa(function(x) sum(x) > 0, TRUE)
+```
+
+```{r PERMANOVA Autoclaved}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+dist.Auto.0 <- phyloseq::distance(fun.Auto.0, method = "bray")
+T.Auto.0 <- fun.Auto.0@sam_data$Sample_Type
+anova.Auto.0 <- adonis2(dist.Auto.0 ~ T.Auto.0)
+p.hoc.Auto.0 <- betadisper(dist.Auto.0, T.Auto.0)
+tuk.Auto.0 <- TukeyHSD(p.hoc.Auto.0)
+
+dist.Auto.8 <- phyloseq::distance(fun.Auto.8, method = "bray")
+T.Auto.8 <- fun.Auto.8@sam_data$Sample_Type
+anova.Auto.8 <- adonis2(dist.Auto.8 ~ T.Auto.8)
+p.hoc.Auto.8 <- betadisper(dist.Auto.8, T.Auto.8)
+tuk.Auto.8 <- TukeyHSD(p.hoc.Auto.8)
+
+dist.Auto.12 <- phyloseq::distance(fun.Auto.12, method = "bray")
+T.Auto.12 <- fun.Auto.12@sam_data$Sample_Type
+anova.Auto.12 <- adonis2(dist.Auto.12 ~ T.Auto.12)
+p.hoc.Auto.12 <- betadisper(dist.Auto.12, T.Auto.12)
+tuk.Auto.12 <- TukeyHSD(p.hoc.Auto.12)
+
+dist.Auto.16 <- phyloseq::distance(fun.Auto.16, method = "bray")
+T.Auto.16 <- fun.Auto.16@sam_data$Sample_Type
+anova.Auto.16 <- adonis2(dist.Auto.16 ~ T.Auto.16)
+p.hoc.Auto.16 <- betadisper(dist.Auto.16, T.Auto.16)
+tuk.Auto.16 <- TukeyHSD(p.hoc.Auto.16)
+```
+
+```{r PERMANOVA AR}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+
+T.AR.0 <- fun.AR.0@sam_data$Sample_Type
+dist.AR.0 <- phyloseq::distance(fun.AR.0, method = "bray")
+anova.AR.0 <- adonis2(dist.AR.0 ~ T.AR.0)
+disp.bray.AR.0 <- betadisper(dist.AR.0, T.AR.0)
+permutest(disp.bray.AR.0)
+
+T.AR.8 <- fun.AR.8@sam_data$Sample_Type
+dist.AR.8 <- phyloseq::distance(fun.AR.8, method = "bray")
+anova.AR.8 <- adonis2(dist.AR.8 ~ T.AR.8)
+disp.bray.AR.8 <- betadisper(dist.AR.8, T.AR.8)
+permutest(disp.bray.AR.8)
+
+T.AR.12 <- fun.AR.12@sam_data$Sample_Type
+dist.AR.12 <- phyloseq::distance(fun.AR.12, method = "bray")
+anova.AR.12 <- adonis2(dist.AR.12 ~ T.AR.12)
+disp.bray.AR.12 <- betadisper(dist.AR.12, T.AR.12)
+permutest(disp.bray.AR.12)
+
+T.AR.16 <- fun.AR.16@sam_data$Sample_Type
+dist.AR.16 <- phyloseq::distance(fun.AR.16, method = "bray")
+anova.AR.16 <- adonis2(dist.AR.16 ~ T.AR.16)
+disp.bray.AR.16 <- betadisper(dist.AR.16, T.AR.16)
+permutest(disp.bray.AR.16)
+```
+
+```{r PERMANOVA EV}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+T.EV.0 <- fun.EV.0@sam_data$Sample_Type
+dist.EV.0 <- phyloseq::distance(fun.EV.0, method = "bray")
+anova.EV.0 <- adonis2(dist.EV.0 ~ T.EV.0)
+disp.bray.EV.0 <- betadisper(dist.EV.0, T.EV.0)
+permutest(disp.bray.EV.0)
+
+T.EV.8 <- fun.EV.8@sam_data$Sample_Type
+dist.EV.8 <- phyloseq::distance(fun.EV.8, method = "bray")
+anova.EV.8 <- adonis2(dist.EV.8 ~ T.EV.8)
+disp.bray.EV.8 <- betadisper(dist.EV.8, T.EV.8)
+permutest(disp.bray.EV.8)
+
+T.EV.12 <- fun.EV.12@sam_data$Sample_Type
+dist.EV.12 <- phyloseq::distance(fun.EV.12, method = "bray")
+anova.EV.12 <- adonis2(dist.EV.12 ~ T.EV.12)
+disp.bray.EV.12 <- betadisper(dist.EV.12, T.EV.12)
+permutest(disp.bray.EV.12)
+
+T.EV.16 <- fun.EV.16@sam_data$Sample_Type
+dist.EV.16 <- phyloseq::distance(fun.EV.16, method = "bray")
+anova.EV.16 <- adonis2(dist.EV.16 ~ T.EV.16)
+disp.bray.EV.16 <- betadisper(dist.EV.16, T.EV.16)
+permutest(disp.bray.EV.16)
+```
+```{r PERMANOVA MI}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+T.MI.0 <- fun.MI.0@sam_data$Sample_Type
+dist.MI.0 <- phyloseq::distance(fun.MI.0, method = "bray")
+anova.MI.0 <- adonis2(dist.MI.0 ~ T.MI.0)
+disp.bray.MI.0 <- betadisper(dist.MI.0, T.MI.0)
+permutest(disp.bray.MI.0)
+
+T.MI.8 <- fun.MI.8@sam_data$Sample_Type
+dist.MI.8 <- phyloseq::distance(fun.MI.8, method = "bray")
+anova.MI.8 <- adonis2(dist.MI.8 ~ T.MI.8)
+disp.bray.MI.8 <- betadisper(dist.MI.8, T.MI.8)
+permutest(disp.bray.MI.8)
+
+T.MI.12 <- fun.MI.12@sam_data$Sample_Type
+dist.MI.12 <- phyloseq::distance(fun.MI.12, method = "bray")
+anova.MI.12 <- adonis2(dist.MI.12 ~ T.MI.12)
+disp.bray.MI.12 <- betadisper(dist.MI.12, T.MI.12)
+permutest(disp.bray.MI.12)
+
+T.MI.16 <- fun.MI.16@sam_data$Sample_Type
+dist.MI.16 <- phyloseq::distance(fun.MI.16, method = "bray")
+anova.MI.16 <- adonis2(dist.MI.16 ~ T.MI.16)
+disp.bray.MI.16 <- betadisper(dist.MI.16, T.MI.16)
+permutest(disp.bray.MI.16)
+```
+```{r PERMANOVA ND}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+T.ND.0 <- fun.ND.0@sam_data$Sample_Type
+dist.ND.0 <- phyloseq::distance(fun.ND.0, method = "bray")
+anova.ND.0 <- adonis2(dist.ND.0 ~ T.ND.0)
+disp.bray.ND.0 <- betadisper(dist.ND.0, T.ND.0)
+permutest(disp.bray.ND.0)
+
+T.ND.8 <- fun.ND.8@sam_data$Sample_Type
+dist.ND.8 <- phyloseq::distance(fun.ND.8, method = "bray")
+anova.ND.8 <- adonis2(dist.ND.8 ~ T.ND.8)
+disp.bray.ND.8 <- betadisper(dist.ND.8, T.ND.8)
+permutest(disp.bray.ND.8)
+
+T.ND.12 <- fun.ND.12@sam_data$Sample_Type
+dist.ND.12 <- phyloseq::distance(fun.ND.12, method = "bray")
+anova.ND.12 <- adonis2(dist.ND.12 ~ T.ND.12)
+disp.bray.ND.12 <- betadisper(dist.ND.12, T.ND.12)
+permutest(disp.bray.ND.12)
+
+T.ND.16 <- fun.ND.16@sam_data$Sample_Type
+dist.ND.16 <- phyloseq::distance(fun.ND.16, method = "bray")
+anova.ND.16 <- adonis2(dist.ND.16 ~ T.ND.16)
+disp.bray.ND.16 <- betadisper(dist.ND.16, T.ND.16)
+permutest(disp.bray.ND.16)
+```
+```{r PERMANOVA TVR}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+T.TVR.0 <- fun.TVR.0@sam_data$Sample_Type
+dist.TVR.0 <- phyloseq::distance(fun.TVR.0, method = "bray")
+anova.TVR.0 <- adonis2(dist.TVR.0 ~ T.TVR.0)
+disp.bray.TVR.0 <- betadisper(dist.TVR.0, T.TVR.0)
+permutest(disp.bray.TVR.0)
+
+T.TVR.8 <- fun.TVR.8@sam_data$Sample_Type
+dist.TVR.8 <- phyloseq::distance(fun.TVR.8, method = "bray")
+anova.TVR.8 <- adonis2(dist.TVR.8 ~ T.TVR.8)
+disp.bray.TVR.8 <- betadisper(dist.TVR.8, T.TVR.8)
+permutest(disp.bray.TVR.8)
+
+T.TVR.12 <- fun.TVR.12@sam_data$Sample_Type
+dist.TVR.12 <- phyloseq::distance(fun.TVR.12, method = "bray")
+anova.TVR.12 <- adonis2(dist.TVR.12 ~ T.TVR.12)
+disp.bray.TVR.12 <- betadisper(dist.TVR.12, T.TVR.12)
+permutest(disp.bray.TVR.12)
+
+T.TVR.16 <- fun.TVR.16@sam_data$Sample_Type
+dist.TVR.16 <- phyloseq::distance(fun.TVR.16, method = "bray")
+anova.TVR.16 <- adonis2(dist.TVR.16 ~ T.TVR.16)
+disp.bray.TVR.16 <- betadisper(dist.TVR.16, T.TVR.16)
+permutest(disp.bray.TVR.16)
+```
+```{r PERMANOVA Wiregrass}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+
+T.Wire.0 <- fun.Wire.0@sam_data$Sample_Type
+dist.Wire.0 <- phyloseq::distance(fun.Wire.0, method = "bray")
+anova.Wire.0 <- adonis2(dist.Wire.0 ~ T.Wire.0)
+disp.bray.Wire.0 <- betadisper(dist.Wire.0, T.Wire.0)
+permutest(disp.bray.Wire.0)
+
+T.Wire.8 <- fun.Wire.8@sam_data$Sample_Type
+dist.Wire.8 <- phyloseq::distance(fun.Wire.8, method = "bray")
+anova.Wire.8 <- adonis2(dist.Wire.8 ~ T.Wire.8)
+disp.bray.Wire.8 <- betadisper(dist.Wire.8, T.Wire.8)
+permutest(disp.bray.Wire.8)
+
+T.Wire.12 <- fun.Wire.12@sam_data$Sample_Type
+dist.Wire.12 <- phyloseq::distance(fun.Wire.12, method = "bray")
+anova.Wire.12 <- adonis2(dist.Wire.12 ~ T.Wire.12)
+disp.bray.Wire.12 <- betadisper(dist.Wire.12, T.Wire.12)
+permutest(disp.bray.Wire.12)
+
+T.Wire.16 <- fun.Wire.16@sam_data$Sample_Type
+dist.Wire.16 <- phyloseq::distance(fun.Wire.16, method = "bray")
+anova.Wire.16 <- adonis2(dist.Wire.16 ~ T.Wire.16)
+disp.bray.Wire.16 <- betadisper(dist.Wire.16, T.Wire.16)
+permutest(disp.bray.Wire.16)
+```
+```{r PERMANOVA PA}
+# PERMANOVA - testing for differences in centroids
+set.seed(12345)  # Set seed for reproducibility
+T.PA.0 <- fun.PA.0@sam_data$Sample_Type
+dist.PA.0 <- phyloseq::distance(fun.PA.0, method = "bray")
+anova.PA.0 <- adonis2(dist.PA.0 ~ T.PA.0)
+disp.bray.PA.0 <- betadisper(dist.PA.0, T.PA.0)
+permutest(disp.bray.PA.0)
+
+T.PA.8 <- fun.PA.8@sam_data$Sample_Type
+dist.PA.8 <- phyloseq::distance(fun.PA.8, method = "bray")
+anova.PA.8 <- adonis2(dist.PA.8 ~ T.PA.8)
+disp.bray.PA.8 <- betadisper(dist.PA.8, T.PA.8)
+permutest(disp.bray.PA.8)
+
+T.PA.12 <- fun.PA.12@sam_data$Sample_Type
+dist.PA.12 <- phyloseq::distance(fun.PA.12, method = "bray")
+anova.PA.12 <- adonis2(dist.PA.12 ~ T.PA.12)
+disp.bray.PA.12 <- betadisper(dist.PA.12, T.PA.12)
+permutest(disp.bray.PA.12)
+
+T.PA.16 <- fun.PA.16@sam_data$Sample_Type
+dist.PA.16 <- phyloseq::distance(fun.PA.16, method = "bray")
+anova.PA.16 <- adonis2(dist.PA.16 ~ T.PA.16)
+disp.bray.PA.16 <- betadisper(dist.PA.16, T.PA.16)
+permutest(disp.bray.PA.16)
+```
+
+```{r Bray anova dataframe}
+data.frame(1:8, row.names = c("Autoclaved","Arkansas",
+                              "EV Smith","Michigan", 
+                              "North Dakota", "Pennsylvania", 
+                              "TV Rec", "Wiregrass")) -> bray.anova.0
+  colnames(bray.anova.0) <- "R2"
+  bray.anova.0$R2 <- c(
+    round(anova.Auto.0$R2[1]*100, 1) ,
+    round(anova.AR.0$R2[1]*100, 1) ,
+    round(anova.EV.0$R2[1]*100, 1) ,
+    round(anova.MI.0$R2[1]*100, 1) ,
+    round(anova.ND.0$R2[1]*100, 1) ,
+    round(anova.PA.0$R2[1]*100, 1) ,
+    round(anova.TVR.0$R2[1]*100, 1) ,
+    round(anova.Wire.0$R2[1]*100, 1))
+  bray.anova.0$Adj.p <-
+    c(round(p.adjust(anova.Auto.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.AR.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.EV.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.MI.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.ND.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.PA.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.TVR.0$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.Wire.0$`Pr(>F)`, "bonferroni"), 4)[1])
+  bray.anova.0$Time <- "0"
+  
+data.frame(1:8, row.names = c("Autoclaved","Arkansas",
+                              "EV Smith","Michigan", 
+                              "North Dakota", "Pennsylvania", 
+                              "TV Rec", "Wiregrass")) -> bray.anova.8
+  colnames(bray.anova.8) <- "R2"
+  bray.anova.8$R2 <- c(
+    round(anova.Auto.8$R2[1]*100, 1) ,
+    round(anova.AR.8$R2[1]*100, 1) ,
+    round(anova.EV.8$R2[1]*100, 1) ,
+    round(anova.MI.8$R2[1]*100, 1) ,
+    round(anova.ND.8$R2[1]*100, 1) ,
+    round(anova.PA.8$R2[1]*100, 1) ,
+    round(anova.TVR.8$R2[1]*100, 1) ,
+    round(anova.Wire.8$R2[1]*100, 1))
+  bray.anova.8$Adj.p <-
+    c(round(p.adjust(anova.Auto.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.AR.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.EV.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.MI.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.ND.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.PA.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.TVR.8$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.Wire.8$`Pr(>F)`, "bonferroni"), 4)[1])
+  bray.anova.8$Time <- "8"
+  
+data.frame(1:8, row.names = c("Autoclaved","Arkansas",
+                              "EV Smith","Michigan", 
+                              "North Dakota", "Pennsylvania", 
+                              "TV Rec", "Wiregrass")) -> bray.anova.12
+  colnames(bray.anova.12) <- "R2"
+  bray.anova.12$R2 <- c(
+    round(anova.Auto.12$R2[1]*100, 1) ,
+    round(anova.AR.12$R2[1]*100, 1) ,
+    round(anova.EV.12$R2[1]*100, 1) ,
+    round(anova.MI.12$R2[1]*100, 1) ,
+    round(anova.ND.12$R2[1]*100, 1) ,
+    round(anova.PA.12$R2[1]*100, 1) ,
+    round(anova.TVR.12$R2[1]*100, 1) ,
+    round(anova.Wire.12$R2[1]*100, 1))
+  bray.anova.12$Adj.p <-
+    c(round(p.adjust(anova.Auto.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.AR.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.EV.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.MI.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.ND.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.PA.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.TVR.12$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.Wire.12$`Pr(>F)`, "bonferroni"), 4)[1])
+  bray.anova.12$Time <- "12"
+  
+data.frame(1:8, row.names = c("Autoclaved","Arkansas",
+                              "EV Smith","Michigan", 
+                              "North Dakota", "Pennsylvania", 
+                              "TV Rec", "Wiregrass")) -> bray.anova.16
+  colnames(bray.anova.16) <- "R2"
+  bray.anova.16$R2 <- c(
+    round(anova.Auto.16$R2[1]*100, 1) ,
+    round(anova.AR.16$R2[1]*100, 1) ,
+    round(anova.EV.16$R2[1]*100, 1) ,
+    round(anova.MI.16$R2[1]*100, 1) ,
+    round(anova.ND.16$R2[1]*100, 1) ,
+    round(anova.PA.16$R2[1]*100, 1) ,
+    round(anova.TVR.16$R2[1]*100, 1) ,
+    round(anova.Wire.16$R2[1]*100, 1))
+  bray.anova.16$Adj.p <-
+    c(round(p.adjust(anova.Auto.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.AR.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.EV.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.MI.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.ND.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.PA.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.TVR.16$`Pr(>F)`, "bonferroni"), 4)[1],
+      round(p.adjust(anova.Wire.16$`Pr(>F)`, "bonferroni"), 4)[1])
+  bray.anova.16$Time <- "16"
+  
+bray.anova <- rbind(bray.anova.0, bray.anova.8, bray.anova.12, bray.anova.16)
+write.csv(bray.anova, "bray_permanova.csv")
+```

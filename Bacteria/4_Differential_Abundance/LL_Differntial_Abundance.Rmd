@@ -513,12 +513,17 @@ TotalCoreTaxa <- TotalAbundaneOccupancy %>%
 
 TotalCoreTaxa$Time2 <- factor(TotalCoreTaxa$Time2, levels = c("0 Hours", "8 Hours", "12 Hours", "16 Hours"))
 
+library(RColorBrewer)
+n <- 120
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 
 WOAH2 <- ggplot(TotalCoreTaxa, aes(x = Time2, fill = Genus)) +
   geom_bar(position = "stack") +
   labs(x = "Time", y = "Count", fill = "Genus") +
   theme_classic() +
-  theme(legend.position = "right", plot.title = element_text(size = 10, face = "bold"))
+  theme(legend.position = "right", plot.title = element_text(size = 10, face = "bold"))+ 
+  scale_color_manual(values = c(qual_col_pals, cbbPalette, tol.cbb, "red", "black"))
 
 ```
 

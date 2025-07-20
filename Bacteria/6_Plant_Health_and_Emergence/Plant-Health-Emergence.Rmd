@@ -1,0 +1,242 @@
+---
+title: "Emergence"
+author: "Emily Roggenkamp"
+date: "2025-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(lme4)
+library(car)
+library(emmeans)
+library(lattice)
+library(stringr)
+library(ggplot2)
+```
+
+## Set global options ##
+```{r}
+# Set global options #
+# no scientific notation
+options(scipen=10000) 
+
+# color blind pallets used throughout 
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+ibm.cbb <- c("#648FFF", "#785EF0", "#DC267F", "#FE6100", "#FFB000")
+tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "#AA4499", "#882255")
+```
+
+```{r}
+myFiles <- list.files(pattern=glob2rx("*Emergence.csv"),
+                      all.files=T, 
+                      full.names=F)
+myData <- lapply(myFiles, read.table, sep = ",", header = TRUE)
+emg <- do.call(rbind, myData)
+emg_sub <- emg[(emg$Location != "Arkansas" & emg$Location != "Wiregrass"),]
+```
+
+```{r}
+lm1 <- lm(Emergence ~ Location, data = emg)
+lm2 <- lm(Emergence ~ Days_Postplanting, data = emg)
+lm3 <- lm(Emergence ~ Days_Postplanting + Location, data = emg)
+<<<<<<< HEAD:Plant-health-emergence/Plant-Health-Emergence.Rmd
+glm1 <- glm(Emergence ~ Location, family = binomial, data = emg)
+glm2 <- glm(Emergence ~ Days_Postplanting, family = binomial, data = emg)
+glm3 <- glm(Emergence ~ Days_Postplanting + Location, 
+            family = binomial, data = emg)
+glm4 <- brglm(Emergence ~ Days_Postplanting + Location, 
+              family = binomial("logit"), data = emg)
+          #biased reduced? help with arkansas all 0s
+=======
+glm1 <- glm(Emergence ~ Location, data = emg)
+glm2 <- glm(Emergence ~ Days_Postplanting, data = emg)
+glm3 <- glm(Emergence ~ Days_Postplanting + Location, data = emg, family = "logistic")
+>>>>>>> 184f6e7d276ade94c4d94e7232edf86225112832:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
+
+anova(glm4, glm3)
+anova(lm3, lm2, lm1)
+#glm4 <- glmer(Emergence ~ Days_Postplanting + Location + (1|Well/Location),
+#              family = binomial,
+#              data = emg_sub)
+glm3$deviance / glm3$df.residual #result less than 1, 0.1740763
+
+summary(glm3)
+
+```
+
+```{r}
+plot(lm3)
+car::Anova(lm3)
+plot(glm3)
+car::Anova(glm3)
+```
+
+```{r}
+lsmeans <- emmeans(glm4, ~Location) 
+Results_lsmeans <- multcomp::cld(lsmeans, alpha = 0.05, adjust = "bon", reversed = TRUE, details = TRUE, Letters = letters) # contrast with Tukey adjustment
+Results_lsmeans
+
+max_emg <- Results_lsmeans$emmeans
+# Extracting the letters for the bars
+sig.diff.letters <- data.frame(Results_lsmeans$emmeans$Location, 
+                               str_trim(Results_lsmeans$emmeans$.group))
+colnames(sig.diff.letters) <- c("Location", 
+                                "Letters")
+```
+
+Cumulative proportions at each timepoint
+```{r}
+emg2 <- emg %>%
+  arrange(Location, Rep, Days_Postplanting)
+
+emg2 <- emg2 %>%
+  group_by(Location, Well) %>%
+  mutate(cum_emerged = cummax(Emergence)) %>%
+  ungroup()
+
+cumulative_emergence <- emg2 %>%
+  group_by(Location, Days_Postplanting) %>%
+  summarise(
+    n_plants = n_distinct(Well),
+    n_emerged = sum(cum_emerged),
+    cum_prop = n_emerged / n_plants
+  ) %>%
+  arrange(cum_prop) %>% 
+  ungroup()
+```
+
+This was to subset the data only to one timepoint past the max emerged - didn't end up using.
+
+```{r}
+max_emergence <- cumulative_emergence %>%
+  group_by(Location) %>%
+  summarise(max_n_emerged = max(n_emerged), .groups = "drop")
+
+max_time <- cumulative_emergence %>%
+  inner_join(max_emergence, by = "Location") %>%
+  filter(n_emerged == max_n_emerged) %>%
+  group_by(Location) %>%
+  summarise(max_time = min(Days_Postplanting), .groups = "drop")
+
+one_past_time <- cumulative_emergence %>%
+  inner_join(max_time, by = "Location") %>%
+  filter(Days_Postplanting > max_time) %>%
+  group_by(Location) %>%
+  summarise(one_past_time = min(Days_Postplanting), .groups = "drop")
+
+cumulative_emergence_subset <- cumulative_emergence %>%
+  left_join(one_past_time, by = "Location") %>%
+  filter(Days_Postplanting <= one_past_time)
+
+max_per_emergence <- cumulative_emergence %>%
+  group_by(Location) %>%
+  summarise(per_emg = max(cum_prop), .groups = "drop") %>%
+  left_join(sig.diff.letters)
+```
+
+```{r}
+emg_plot1 <- ggplot(cumulative_emergence, 
+       aes(x = Days_Postplanting, y = cum_prop*100, color = Location)) +
+  geom_line(size = 1.2) +
+  scale_color_manual(name = "Location", values = cbbPalette) +
+  labs(
+    x = "Time",
+    y = "Percent Emerged",
+    title = "Emergence Over Time"
+  ) +
+  coord_cartesian(xlim = c(0, 30)) +
+<<<<<<< HEAD:Plant-health-emergence/Plant-Health-Emergence.Rmd
+  theme_minimal()
+```
+
+Ploting emmeans
+```{r}
+ggplot(max_emg, aes(x = Location, y = emmean, color = Location)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
+  geom_text(aes(label = .group, y = emmean+(4*SE))) +
+  labs(
+    x = "Location",
+    y = "Estimated Marginal Mean (lsmean)",
+    title = "Estimated Marginal Means by Location"
+  ) +
+  theme_minimal()
+=======
+  theme(title = element_text(size=14),
+        axis.text = element_text(size = 14), 
+        axis.title = element_text(size = 14), 
+        strip.text = element_text(size = 14), 
+        legend.text = element_text(size = 14))
+>>>>>>> 05916ec937394eea862ad04d9705865b516ffef1:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
+
+emg_plot1
+```
+
+Plotting percent emergence with stat letters
+```{r}
+emg_plot2 <- ggplot(max_per_emergence, aes(x = Location, y = per_emg*100)) +
+  geom_col(aes(fill = Location)) +
+  geom_text(aes(label = Letters, y = per_emg*100+4)) +
+  scale_fill_manual(name = "Location", values = cbbPalette) +
+  labs(
+    x = "Location",
+    y = "Percent Emergence",
+    title = "Percent Emergence by Location"
+  ) +
+<<<<<<< HEAD:Plant-health-emergence/Plant-Health-Emergence.Rmd
+    theme(title = element_text(size=14),
+        axis.text = element_text(size = 14), 
+        axis.title = element_text(size = 14), 
+        strip.text = element_text(size = 14), 
+        legend.text = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+emg_plot2
+```
+
+```{r}
+#ggsave(plot = emg_plot2, filename = "emergence.png", units = "mm", width = 150, height = 100, dpi = 600)
+```
+=======
+  theme_minimal()
+<<<<<<< HEAD:Plant-health-emergence/Plant-Health-Emergence.Rmd
+
+```
+=======
+```
+
+#Plant Health Measurements
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+>>>>>>> 184f6e7d276ade94c4d94e7232edf86225112832:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
+>>>>>>> 05916ec937394eea862ad04d9705865b516ffef1:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
