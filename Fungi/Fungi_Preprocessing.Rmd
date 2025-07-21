@@ -55,7 +55,7 @@ otu_fun <- otu_fun[,-1]
 OTU.fun <- phyloseq::otu_table(otu_fun, taxa_are_rows = TRUE)
 any(is.na(otu_fun)) # no NA in the OTU table
 ###IN ORDER TO KNIT THIS THE LINES ABOVE ARE COMMENTED OUT FILE IS COMPRESSED ###
-# Taxonomy #
+# Constax Taxonomy #
 taxonomy.fun <- read.csv("Usearch_Merged_Analysis/constax_taxonomy.txt", header = TRUE, sep ="\t")
 taxonomy.fun[, "Kingdom"] <- as.factor(gsub("_1", "", taxonomy.fun[, "Kingdom"]))
 taxonomy.fun[, "Phylum"] <- as.factor(gsub("_1", "", taxonomy.fun[, "Phylum"]))
@@ -67,6 +67,11 @@ taxonomy.fun[, "Species"] <- as.factor(gsub("_1", "", taxonomy.fun[, "Species"])
 
 rownames(taxonomy.fun) <- taxonomy.fun$OTU_ID
 TAX.fun <- phyloseq::tax_table(as.matrix(taxonomy.fun))
+
+#Compare taxonomy assignment algorithms NBC-dada2
+taxonomy.fun.dada <- read.csv("Usearch_Merged_Analysis/NBC_SINTAX_comb.csv", header = TRUE)
+rownames(taxonomy.fun.dada) <- taxonomy.fun.dada$OTU
+TAX.dad <- phyloseq::tax_table(as.matrix(taxonomy.fun.dada))
 
 
 FASTA.fun <- readDNAStringSet("Usearch_Merged_Analysis/otus.fasta", format="fasta", seek.first.rec=TRUE, use.names=TRUE)
@@ -186,7 +191,7 @@ sample.sums <- data.frame(sample_sums(fun_sperm))
 # Read Depth Analysis
 ```{r Read Depth Analysis}
 # Restore the object
-#bac_sperm <- readRDS(file = "Bacteria_RDS/Spermosphere_bac_clean.rds")
+#fun_sperm <- readRDS(file = "Fungi_RDS/Spermosphere_Fungi_clean.rds")
 
 ###### READS PER SAMPLE ######
 sample.sums <- data.frame(sample_sums(fun_sperm))
@@ -258,7 +263,7 @@ metagenomeSeq::normFactors(MGS) # exports the normalized factors for each sample
 norm.fun <- metagenomeSeq::MRcounts(MGS, norm = T) 
 norm.fun.OTU <- phyloseq::otu_table(norm.fun, taxa_are_rows = TRUE) #exports the new otu table
 
-fun.css.norm <- phyloseq::phyloseq(norm.fun.OTU, FASTA.fun, SAMP.fun, TAX.fun) #new otu table phyloseq object
+fun.css.norm <- phyloseq::phyloseq(norm.fun.OTU, FASTA.fun, SAMP.fun, TAX.dad) #new otu table phyloseq object
 # ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
 #saveRDS(fun.css.norm, file = "Fungi_RDS/Spermosphere_Fungi_CSS.rds")
 # ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
@@ -376,14 +381,14 @@ Only run on file once!
 
 Top taxa in the Spermosphere samples
 ```{r}
-fun.css.norm2 <- fun_psq %>%
+fun.css.norm2 <- fun.pruned %>%
   subset_samples(Sample_Type == "Spermosphere") %>%
   transform_sample_counts(function(x) {x/sum(x)} )
 
 topx.fungi <- top_taxa(fun.css.norm2, n = 40)
 
 fun.composition <- fun.css.norm2 %>%
-  subset_taxa(OTU_ID %in% topx.fungi) %>%
+  subset_taxa(OTU %in% topx.fungi) %>%
   microbiome::transform("compositional") %>%
   psmelt() %>% 
   group_by(Location_EC, Time, Label) %>%
@@ -402,7 +407,7 @@ fun.composition <- fun.css.norm2 %>%
         axis.title = element_text(size = 12), 
         strip.text = element_text(size = 12), plot.title = element_text(size = 12),
         legend.text = element_text(face = "italic", size = 12), 
-        legend.title = element_blank()#,plot.margin = margin(t = 60)
+        legend.title = element_blank(),plot.margin = margin(l = 25)
         ) +
   facet_wrap(~Time)
 fun.composition
