@@ -263,13 +263,13 @@ metagenomeSeq::normFactors(MGS) # exports the normalized factors for each sample
 norm.fun <- metagenomeSeq::MRcounts(MGS, norm = T) 
 norm.fun.OTU <- phyloseq::otu_table(norm.fun, taxa_are_rows = TRUE) #exports the new otu table
 
-fun.css.norm <- phyloseq::phyloseq(norm.fun.OTU, FASTA.fun, SAMP.fun, TAX.dad) #new otu table phyloseq object
+fun.css.norm <- phyloseq::phyloseq(norm.fun.OTU, FASTA.fun, SAMP.fun, TAX.fun) #new otu table phyloseq object
 # ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
 #saveRDS(fun.css.norm, file = "Fungi_RDS/Spermosphere_Fungi_CSS.rds")
 # ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
 
 # Restore the object
-#fun.css.norm <- readRDS(file = "Bacteria_RDS/Spermosphere_CSS.rds")
+#fun.css.norm <- readRDS(file = "Fungi_RDS/Spermosphere_Fungi_CSS.rds")
 ```
 
 # Further Filtering #
