@@ -64,6 +64,10 @@ anova(lm3, lm2, lm1)
 #glm4 <- glmer(Emergence ~ Days_Postplanting + Location + (1|Well/Location),
 #              family = binomial,
 #              data = emg_sub)
+glm3$deviance / glm3$df.residual #result less than 1, 0.1740763
+
+summary(glm3)
+
 ```
 
 ```{r}
@@ -78,6 +82,7 @@ lsmeans <- emmeans(glm4, ~Location)
 Results_lsmeans <- multcomp::cld(lsmeans, alpha = 0.05, adjust = "bon", reversed = TRUE, details = TRUE, Letters = letters) # contrast with Tukey adjustment
 Results_lsmeans
 
+max_emg <- Results_lsmeans$emmeans
 # Extracting the letters for the bars
 sig.diff.letters <- data.frame(Results_lsmeans$emmeans$Location, 
                                str_trim(Results_lsmeans$emmeans$.group))
@@ -146,11 +151,29 @@ emg_plot1 <- ggplot(cumulative_emergence,
     title = "Emergence Over Time"
   ) +
   coord_cartesian(xlim = c(0, 30)) +
+<<<<<<< HEAD:Plant-health-emergence/Plant-Health-Emergence.Rmd
+  theme_minimal()
+```
+
+Ploting emmeans
+```{r}
+ggplot(max_emg, aes(x = Location, y = emmean, color = Location)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
+  geom_text(aes(label = .group, y = emmean+(4*SE))) +
+  labs(
+    x = "Location",
+    y = "Estimated Marginal Mean (lsmean)",
+    title = "Estimated Marginal Means by Location"
+  ) +
+  theme_minimal()
+=======
   theme(title = element_text(size=14),
         axis.text = element_text(size = 14), 
         axis.title = element_text(size = 14), 
         strip.text = element_text(size = 14), 
         legend.text = element_text(size = 14))
+>>>>>>> 05916ec937394eea862ad04d9705865b516ffef1:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
 
 emg_plot1
 ```
@@ -182,6 +205,10 @@ emg_plot2
 ```
 =======
   theme_minimal()
+<<<<<<< HEAD:Plant-health-emergence/Plant-Health-Emergence.Rmd
+
+```
+=======
 ```
 
 #Plant Health Measurements
@@ -212,3 +239,4 @@ emg_plot2
 
 
 >>>>>>> 184f6e7d276ade94c4d94e7232edf86225112832:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
+>>>>>>> 05916ec937394eea862ad04d9705865b516ffef1:Bacteria/6_Plant_Health_and_Emergence/Plant-Health-Emergence.Rmd
