@@ -34,9 +34,11 @@ tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "
 
 # Extra colors 
 library(RColorBrewer)
-n <- 40
+n <- 120
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+color2 = grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
+col_vector2 = sample(color2, n)
 ```
 
 ## Input Files
@@ -131,7 +133,7 @@ Usearch Merged Reads Decontamination:
 
 
 # Taxonomy filtering #
-```{r Filtering Taxa that are not Bacteria}
+```{r Filtering Taxa that are not Fungi}
 # remove OTUs that are not Fungi 
 fun_filt <- fun_f_filt %>% 
   phyloseq::subset_taxa(Kingdom == "Fungi")
@@ -346,7 +348,7 @@ ReformatTaxonomy <- function(dataframe){
   taxa_table[taxa_table=="Unidentified"]<- NA
   taxa_table[taxa_table==""]<- NA
   taxa_table[taxa_table=="Incertae sedis"]<- NA
-  taxa_table[taxa_table=="uncultured bacterium"]<- NA
+  taxa_table[taxa_table=="uncultured fungi"]<- NA
   #to remove species that aready have sp
   taxa_table$Species <- 
     gsub(" sp ", "", taxa_table$Species)

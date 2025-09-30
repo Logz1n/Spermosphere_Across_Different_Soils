@@ -1,0 +1,681 @@
+---
+title: "Differential Abundance Fungi"
+author: "Emily Roggenkamp"
+date: "2025-09-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##### Differential Abundance #####
+```{r}
+###### Libraries #####
+#if (!require("BiocManager", quietly = TRUE))
+    #install.packages("BiocManager")
+
+#library(BiocManager)
+#BiocManager::install("metagenomeSeq")
+
+#if (!require("BiocManager", quietly = TRUE))
+    #install.packages("BiocManager")
+
+#BiocManager::install("DESeq2")
+
+library(phyloseq)
+library(microbiome)
+library(vegan)
+library(tidyverse)
+library(ggplot2)
+library(minpack.lm)
+library(Hmisc)
+library(stats4)
+library(ggrepel)
+#library(ANCOMBC)
+library(ggVennDiagram)
+library(VennDiagram)
+library(ggpubr)
+library(plyr)
+library(dplyr)
+library(DESeq2)
+
+# set options for scientific numbers to not be displayed
+options(scipen=10000) 
+
+# color blind pallet used throughout 
+cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#000000", "#CC79A7")
+cbbPalette2 <- c("grey", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#000000")
+ibm.cbb <- c("#648FFF", "#785EF0", "#DC267F", "#FE6100")
+tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "#AA4499", "#125","#882255")
+extra.cbb <- c("#089", "#890", "#321", "#245", "#789", "#125", "#100", "#900", #"#991",
+               "#678912", "#199832", "#981734", "#299999", "#45611234", "#892393", "#183")
+```
+
+#### Read in RDS file #### 
+```{r}
+# using the non-normalized reads since spieceasi has its own normalizaiton methods
+
+fun_sperm <- readRDS("Spermosphere_Fungi_clean_dada2.rds") ##Using Non-normalized Reads
+
+TaxaTable <- as.data.frame(fun_sperm@tax_table)
+
+```
+
+#DESEQ2 Differential Abundance Analysis Pre-Filtering
+```{r}
+#fun_sperm_filt <- core(fun_sperm, detection = 5, prevalence = .1)
+
+DA_Auto_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "Autoclaved_Potting_Soil" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_EV_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "EVSmith_EC" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_MI_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "Michigan" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_ND_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "N_Dakota" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_TVR_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "TVRec_EC" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_WIRE_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "Wiregrass_EC" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_PA_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "Pennsylvania" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+DA_AR_Sperm <- fun_sperm %>%
+    subset_samples(Location_EC == "Arkansas" & Sample_Type == "Spermosphere" & Time %in% c("0","16"))
+```
+
+
+#DESEQ2 Differential Abundance Analysis for Autoclaved Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_Auto_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_Auto_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab1 <- sigtab %>%
+  mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+AutoclavedDiffAbundPlot <- ggplot(sigtab1, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab1[sigtab1$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+AutoclavedDiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for EV Smith Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_EV_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_EV_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab2 <- sigtab %>%
+  mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+EVDiffAbundPlot <- ggplot(sigtab2, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab2[sigtab2$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+EVDiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for Michigan Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_MI_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_MI_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab3 <- sigtab %>%
+  mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+MIDiffAbundPlot <- ggplot(sigtab3, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab3[sigtab3$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+MIDiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for North Dakota Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_ND_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_ND_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab4 <- sigtab %>%
+  mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+NDDiffAbundPlot <- ggplot(sigtab4, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab4[sigtab4$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+NDDiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for TVRec Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_TVR_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_TVR_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab5 <- sigtab %>%
+ mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+TVRecDiffAbundPlot <- ggplot(sigtab5, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab5[sigtab5$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+TVRecDiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for Wiregrass Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_WIRE_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_WIRE_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab6 <- sigtab %>%
+  mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+WireDiffAbundPlot <- ggplot(sigtab6, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab6[sigtab6$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+WireDiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for Pennsylvania Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_PA_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_PA_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab7 <- sigtab %>%
+ mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+PADiffAbundPlot <- ggplot(sigtab7, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab7[sigtab7$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+PADiffAbundPlot
+
+```
+
+#DESEQ2 Differential Abundance Analysis for Arkansas Spermosphere Samples
+```{r}
+diagdds = phyloseq_to_deseq2(DA_AR_Sperm, ~Time)
+
+diagdds = DESeq(diagdds, test="Wald", fitType="parametric")
+res = results(diagdds, cooksCutoff = FALSE)
+alpha = 1
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(tax_table(DA_AR_Sperm)[rownames(sigtab), ], "matrix"))
+
+sigtab8 <- sigtab %>%
+  mutate(
+    diff_abund = case_when(
+      padj < 0.01 & log2FoldChange > 0 ~ "Up",
+      padj < 0.01 & log2FoldChange < 0 ~ "Down",
+      TRUE ~ "NS"))
+
+ARDiffAbundPlot <- ggplot(sigtab8, aes(x = log2FoldChange, y = -log10(padj), color = diff_abund)) +
+  geom_point(aes(color = diff_abund)) +
+  geom_text_repel(data = sigtab8[sigtab8$padj <= 0.01,],
+                  aes(label = Label), size = 6) +
+  theme_classic() +
+  labs(title = "Differential Abundance with DESeq2") +
+  #scale_color_manual(values = c(cbbPalette, ibm.cbb, tol.cbb), name = "Phylum") +
+  scale_color_manual(values = c("#E69F00", "#000000","#56B4E9"), name  = "Significance") +
+  scale_shape_manual(values = c(20,24), name = "p <= 0.05")
+ARDiffAbundPlot
+
+```
+
+#Combining everything above
+```{r}
+AutoclavedTaxa <- sigtab1 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "Autoclaved")
+
+EVSmithTaxa <- sigtab2 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "EV Smith")
+
+MichiganTaxa <- sigtab3 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "Michigan")
+
+NorthDakotaTaxa <- sigtab4 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "North Dakota")
+
+TVRecTaxa <- sigtab5 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "TVRec")
+
+WiregrassTaxa <- sigtab6 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "Wiregrass")
+
+PennsylvaniaTaxa <- sigtab7 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "Pennsylvania")
+
+ArkansasTaxa <- sigtab8 %>%
+  subset(diff_abund == "Up") %>%
+  #mutate(Label = paste(rownames(.), Genus, sep = " ")) %>%
+  mutate(Location_Type = "Arkansas")
+
+TotalDiffAbundance <- AutoclavedTaxa %>%
+  rbind(EVSmithTaxa) %>%
+  rbind(MichiganTaxa) %>%
+  rbind(NorthDakotaTaxa) %>%
+  rbind(TVRecTaxa) %>%
+  rbind(WiregrassTaxa) %>%
+  rbind(PennsylvaniaTaxa) %>%
+  rbind(ArkansasTaxa)
+```
+
+```{r}
+
+WOAH <- ggplot(TotalDiffAbundance, aes(x = Location_Type, fill = Family)) +
+  geom_bar(position = "stack") +
+  labs(x = "Location_Spermosphere", y = "Count", fill = "Family") +
+  theme_classic() +
+  theme(legend.position = "right", plot.title = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(angle=45, hjust=1)) +
+  scale_fill_manual(values = c(cbbPalette, tol.cbb, ibm.cbb, col_vector)) +
+  guides(fill = guide_legend(ncol = 3))
+  
+WOAH
+```
+###Abundance occupancy Fungi Prefiltering ###
+```{r}
+Sperm_0 <- fun_sperm %>%
+    subset_samples(Sample_Type == "Spermosphere" & Time %in% c("0"))
+
+#FUNGI 0 hours
+Sperm_0.meta.data <- data.frame(Sperm_0@sam_data)
+Sperm_0.tax.data <- data.frame(Sperm_0@tax_table)
+Sperm_0.otu <- Sperm_0@otu_table %>%
+  as("matrix")
+
+Sperm_8 <- fun_sperm %>%
+    subset_samples(Sample_Type == "Spermosphere" & Time %in% c("8"))
+
+#FUNGI 8 hours
+Sperm_8.meta.data <- data.frame(Sperm_8@sam_data)
+Sperm_8.tax.data <- data.frame(Sperm_8@tax_table)
+Sperm_8.otu <- Sperm_8@otu_table %>%
+  as("matrix")
+
+Sperm_12 <- fun_sperm %>%
+    subset_samples(Sample_Type == "Spermosphere" & Time %in% c("12"))
+
+#FUNGI 12 hours
+Sperm_12.meta.data <- data.frame(Sperm_12@sam_data)
+Sperm_12.tax.data <- data.frame(Sperm_12@tax_table)
+Sperm_12.otu <- Sperm_12@otu_table %>%
+  as("matrix")
+
+Sperm_16 <- fun_sperm %>%
+    subset_samples(Sample_Type == "Spermosphere" & Time %in% c("16"))
+
+#FUNGI 16 hours
+Sperm_16.meta.data <- data.frame(Sperm_16@sam_data)
+Sperm_16.tax.data <- data.frame(Sperm_16@tax_table)
+Sperm_16.otu <- Sperm_16@otu_table %>%
+  as("matrix")
+```
+
+###Abundance occupancy Fungi Calculations Time 0 ###
+```{r}
+Sperm_0.otu_PA <- 1*((Sperm_0.otu>0)==1)                                               # presence-absence data
+Sperm_0.otu_occ <- rowSums(Sperm_0.otu_PA)/ncol(Sperm_0.otu_PA)                                # occupancy calculation
+Sperm_0.otu_rel <- apply(decostand(Sperm_0.otu, method="total", MARGIN=2),1, mean)     # mean relative abundance
+Sperm_0.occ_abun <- rownames_to_column(as.data.frame(cbind(Sperm_0.otu_occ, Sperm_0.otu_rel)),'OTU')
+colnames(Sperm_0.occ_abun) = c("OTU", "fun.otu_occ", "fun.otu_rel")
+Sperm_0.occ_abund_tax <- left_join(Sperm_0.occ_abun, Sperm_0.tax.data, by = "OTU")
+
+Sperm_0.occ_abund_tax$Other <- ifelse(Sperm_0.occ_abund_tax$fun.otu_occ < 0.96 & Sperm_0.occ_abund_tax$fun.otu_rel < 0.05, "Other", Sperm_0.occ_abund_tax$Order)
+
+
+```
+
+###Abundance occupancy Fungi Calculations Time 8 ###
+```{r}
+Sperm_8.otu_PA <- 1*((Sperm_8.otu>0)==1)                                               # presence-absence data
+Sperm_8.otu_occ <- rowSums(Sperm_8.otu_PA)/ncol(Sperm_8.otu_PA)                                # occupancy calculation
+Sperm_8.otu_rel <- apply(decostand(Sperm_8.otu, method="total", MARGIN=2),1, mean)     # mean relative abundance
+Sperm_8.occ_abun <- rownames_to_column(as.data.frame(cbind(Sperm_8.otu_occ, Sperm_8.otu_rel)),'OTU')
+colnames(Sperm_8.occ_abun) = c("OTU", "fun.otu_occ", "fun.otu_rel")
+Sperm_8.occ_abund_tax <- left_join(Sperm_8.occ_abun, Sperm_8.tax.data, by = "OTU")
+
+Sperm_8.occ_abund_tax$Other <- ifelse(Sperm_8.occ_abund_tax$fun.otu_occ < 0.96 & Sperm_8.occ_abund_tax$fun.otu_rel < 0.05, "Other", Sperm_8.occ_abund_tax$Order)
+
+
+```
+
+###Abundance occupancy Fungi Calculations Time 12 ###
+```{r}
+Sperm_12.otu_PA <- 1*((Sperm_12.otu>0)==1)                                               # presence-absence data
+Sperm_12.otu_occ <- rowSums(Sperm_12.otu_PA)/ncol(Sperm_12.otu_PA)                                # occupancy calculation
+Sperm_12.otu_rel <- apply(decostand(Sperm_12.otu, method="total", MARGIN=2),1, mean)     # mean relative abundance
+Sperm_12.occ_abun <- rownames_to_column(as.data.frame(cbind(Sperm_12.otu_occ, Sperm_12.otu_rel)),'OTU')
+colnames(Sperm_12.occ_abun) = c("OTU", "fun.otu_occ", "fun.otu_rel")
+Sperm_12.occ_abund_tax <- left_join(Sperm_12.occ_abun, Sperm_12.tax.data, by = "OTU")
+
+Sperm_12.occ_abund_tax$Other <- ifelse(Sperm_12.occ_abund_tax$fun.otu_occ < 0.96 & Sperm_12.occ_abund_tax$fun.otu_rel < 0.05, "Other", Sperm_12.occ_abund_tax$Order)
+
+
+```
+
+###Abundance occupancy Fungi Calculations Time 16 ###
+```{r}
+Sperm_16.otu_PA <- 1*((Sperm_16.otu>0)==1)                                               # presence-absence data
+Sperm_16.otu_occ <- rowSums(Sperm_16.otu_PA)/ncol(Sperm_16.otu_PA)                                # occupancy calculation
+Sperm_16.otu_rel <- apply(decostand(Sperm_16.otu, method="total", MARGIN=2),1, mean)     # mean relative abundance
+Sperm_16.occ_abun <- rownames_to_column(as.data.frame(cbind(Sperm_16.otu_occ, Sperm_16.otu_rel)),'OTU')
+colnames(Sperm_16.occ_abun) = c("OTU", "fun.otu_occ", "fun.otu_rel")
+Sperm_16.occ_abund_tax <- left_join(Sperm_16.occ_abun, Sperm_16.tax.data, by = "OTU")
+
+Sperm_16.occ_abund_tax$Other <- ifelse(Sperm_16.occ_abund_tax$fun.otu_occ < 0.96 & Sperm_16.occ_abund_tax$fun.otu_rel < 0.05, "Other", Sperm_16.occ_abund_tax$Order)
+
+
+```
+
+```{r}
+Sperm_0.occ_abund_tax$Time2 <- "0 Hours"
+Sperm_8.occ_abund_tax$Time2 <- "8 Hours"
+Sperm_12.occ_abund_tax$Time2 <- "12 Hours"
+Sperm_16.occ_abund_tax$Time2 <- "16 Hours"
+
+TotalAbundaneOccupancy <- Sperm_0.occ_abund_tax %>%
+  rbind(Sperm_8.occ_abund_tax) %>%
+  rbind(Sperm_12.occ_abund_tax) %>%
+  rbind(Sperm_16.occ_abund_tax)
+
+TotalAbundaneOccupancy$Time2 <- factor(TotalAbundaneOccupancy$Time2, levels = c("0 Hours", "8 Hours", "12 Hours", "16 Hours"))
+```
+
+```{r}
+fig2a <- ggplot(TotalAbundaneOccupancy, aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other)) +
+  geom_point() + 
+  theme_classic2() + 
+  #transition_states(Steamed2, transition_length = 5, state_length = 5) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_y_continuous(labels = scales::percent) +
+  #scale_x_continuous(labels = scales::percent) + 
+  geom_hline(yintercept = .96, linetype = "dashed") +
+  xlab("Log10(Relative Abundance)") +
+  ylab("% Occupancy") + 
+  scale_color_manual(values = c(ibm.cbb, cbbPalette, tol.cbb, "black", extra.cbb, "red")) +
+  #geom_text_repel(data = FCombined[FCombined$fun.otu_occ > 0.80 | FCombined$fun.otu_rel > 0.05,], 
+                  #aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other, label = Label), size = 2) +
+  facet_wrap(~Time2) +
+  theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
+fig2a
+```
+
+```{r}
+fig2b <- ggplot(TotalAbundaneOccupancy, aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other)) +
+  geom_point() + 
+  theme_classic2() + 
+  #transition_states(Steamed2, transition_length = 5, state_length = 5) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_y_continuous(labels = scales::percent) +
+  #scale_x_continuous(labels = scales::percent) + 
+  geom_hline(yintercept = .96, linetype = "dashed") +
+  xlab("Log10(Relative Abundance)") +
+  ylab("% Occupancy") +
+  coord_cartesian(ylim = c(0.95, 1.01), expand = FALSE) +
+  scale_color_manual(values = c(ibm.cbb, cbbPalette, tol.cbb, "black", extra.cbb, "red")) +
+  geom_text_repel(data = TotalAbundaneOccupancy[TotalAbundaneOccupancy$fun.otu_occ > 0.96 | TotalAbundaneOccupancy$fun.otu_rel > 0.1,], 
+                  aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other, label = Genus), size = 3.5) +
+  facet_wrap(~Time2) +
+  theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
+fig2b
+```
+
+```{r}
+TotalCoreTaxa <- TotalAbundaneOccupancy %>%
+    subset(Other != "Other")
+
+TotalCoreTaxa$Time2 <- factor(TotalCoreTaxa$Time2, levels = c("0 Hours", "8 Hours", "12 Hours", "16 Hours"))
+
+library(RColorBrewer)
+n <- 120
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+WOAH2 <- ggplot(TotalCoreTaxa, aes(x = Time2, fill = Family)) +
+  geom_bar(position = "stack") +
+  labs(x = "Time", y = "Count", fill = "Family") +
+  theme_classic() +
+  theme(legend.position = "right", plot.title = element_text(size = 10, face = "bold"))+ 
+  scale_fill_manual(values = c(ibm.cbb, cbbPalette, tol.cbb, col_vector, "red", "black"))
+WOAH2
+
+```
+
+Combining 12 and 16 hours abundance occupancy
+
+```{r}
+Sperm8_12_16 <- fun_sperm %>%
+    subset_samples(Sample_Type == "Spermosphere" & Time %in% c("8","12","16"))
+
+Sperm8_12_16.meta.data <- data.frame(Sperm8_12_16@sam_data)
+Sperm8_12_16.tax.data <- data.frame(Sperm8_12_16@tax_table)
+Sperm8_12_16.otu <- Sperm8_12_16@otu_table %>%
+  as("matrix")
+```
+
+###Abundance occupancy Fungi Calculations Time 12 and 16 hours combined ###
+```{r}
+Sperm8_12_16.otu_PA <- 1*((Sperm8_12_16.otu>0)==1)                                               # presence-absence data
+Sperm8_12_16.otu_occ <- rowSums(Sperm8_12_16.otu_PA)/ncol(Sperm8_12_16.otu_PA)                                # occupancy calculation
+Sperm8_12_16.otu_rel <- apply(decostand(Sperm8_12_16.otu, method="total", MARGIN=2),1, mean)     # mean relative abundance
+Sperm8_12_16.occ_abun <- rownames_to_column(as.data.frame(cbind(Sperm8_12_16.otu_occ, Sperm8_12_16.otu_rel)),'OTU')
+colnames(Sperm8_12_16.occ_abun) = c("OTU", "fun.otu_occ", "fun.otu_rel")
+Sperm8_12_16.occ_abund_tax <- left_join(Sperm8_12_16.occ_abun, Sperm8_12_16.tax.data, by = "OTU")
+
+Sperm8_12_16.occ_abund_tax$Other <- ifelse(Sperm8_12_16.occ_abund_tax$fun.otu_occ < 0.96 & Sperm8_12_16.occ_abund_tax$fun.otu_rel < 0.05, "Other", Sperm8_12_16.occ_abund_tax$Class)
+```
+
+```{r}
+fig3a <- ggplot(Sperm8_12_16.occ_abund_tax, aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other)) +
+  geom_point() + 
+  theme_classic2() + 
+  #transition_states(Steamed2, transition_length = 5, state_length = 5) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_y_continuous(labels = scales::percent) +
+  #scale_x_continuous(labels = scales::percent) + 
+  geom_hline(yintercept = .96, linetype = "dashed") +
+  xlab("Log10(Relative Abundance)") +
+  ylab("% Occupancy") + 
+  scale_color_manual(values = c(tol.cbb, cbbPalette2)) +
+  #geom_text_repel(data = FCombined[FCombined$fun.otu_occ > 0.80 | FCombined$fun.otu_rel > 0.05,], 
+                  #aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other, label = Label), size = 2) +
+  theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
+fig3a
+```
+```{r}
+x <- list(`TVRec`=row.names(TVRecTaxa),
+          `Arkansas`=row.names(ArkansasTaxa),
+          `Michigan`=row.names(MichiganTaxa),
+          `North Dakota`=row.names(NorthDakotaTaxa),
+          `Pennsylvania`=row.names(PennsylvaniaTaxa),
+          `EV Smith`=row.names(EVSmithTaxa),
+          `Wiregrass`=row.names(WiregrassTaxa)
+          )
+df <- unlist(x)
+df2 <- unique(df)
+diff_ab_taxa <- TaxaTable[rownames(TaxaTable) %in% df2, ]
+
+ggVennDiagram(x)
+
+ggvenn(
+  x, 
+  fill_color = sub.cbb,
+  stroke_size = 0.5, set_name_size = 5, show_percentage = FALSE
+  )
+```
+
+
+```{r}
+CoreTaxa81216 <- Sperm8_12_16.occ_abund_tax %>%
+    subset(Other != "Other")
+int_taxa <- CoreTaxa81216[CoreTaxa81216$OTU %in% df2, ]
+int_taxa$OTU -> int_taxa_list
+```
+
+
+
+
+```{r}
+fig3b <- ggplot(Sperm8_12_16.occ_abund_tax, aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other)) +
+  geom_point() + 
+  theme_classic2() + 
+  #transition_states(Steamed2, transition_length = 5, state_length = 5) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_y_continuous(labels = scales::percent) +
+  #scale_x_continuous(labels = scales::percent) + 
+  geom_hline(yintercept = .96, linetype = "dashed") +
+  xlab("Log10(Relative Abundance)") +
+  ylab("% Occupancy") +
+  coord_cartesian(xlim = c(-6,0),ylim = c(0.95, 1.01), expand = FALSE) +
+  scale_color_manual(values = c(tol.cbb, cbbPalette2)) +
+  geom_text_repel(data = 
+    Sperm8_12_16.occ_abund_tax[Sperm8_12_16.occ_abund_tax$OTU %in% int_taxa_list,],
+    max.overlaps=12,
+    aes(label = Label), size = 4, show.legend = FALSE) +
+  #geom_text_repel(data = FCombined[FCombined$fun.otu_occ > 0.80 | FCombined$fun.otu_rel > 0.05,], 
+                  #aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other, label = Label), size = 2) +
+  theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
+fig3b
+```
+
+fig2a <- ggplot(TotalAbundaneOccupancy, aes(y = bac.otu_occ, x = log10(bac.otu_rel), color = Other)) +
+  geom_point() + 
+  theme_classic2() + 
+  #transition_states(Steamed2, transition_length = 5, state_length = 5) +
+  #scale_fill_manual(values= c(cbbPalette, ibm.cbb, tol.cbb)) +
+  scale_y_continuous(labels = scales::percent) +
+  #scale_x_continuous(labels = scales::percent) + 
+  geom_hline(yintercept = .96, linetype = "dashed") +
+  xlab("Log10(Relative Abundance)") +
+  ylab("% Occupancy") + 
+  scale_color_manual(values = c(ibm.cbb, cbbPalette, tol.cbb, "red", "black")) +
+  #geom_text_repel(data = 
+   # Sperm_12.occ_abund_tax[Sperm_12.occ_abund_tax$OTU %in% int_taxa_list,],
+    #max.overlaps=12,
+    #aes(label = Taxonomy), size = 4, show.legend = FALSE) +
+  #geom_text_repel(data = FCombined[FCombined$fun.otu_occ > 0.80 | FCombined$fun.otu_rel > 0.05,], 
+                  #aes(y = fun.otu_occ, x = log10(fun.otu_rel), color = Other, label = Label), size = 2) +
+  facet_wrap(~Time2) +
+  theme(legend.text = element_text(face = "italic", size = 18),
+        legend.title = element_blank(),
+        axis.title = element_text(size = 18)) +
+  guides(color = guide_legend(ncol = 1))
+fig2a
