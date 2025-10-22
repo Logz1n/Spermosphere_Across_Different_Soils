@@ -54,7 +54,7 @@ fun_sperm <- readRDS(file = "Spermosphere_Fungi_clean.rds") ##Using Non-normaliz
 
 # Alpha Diversity #
 
-Richness and Pielou's Evenness
+Richness and Pielou's Evenness Global
 
 ```{r}
 fun_sperm@sam_data$shannon <- estimate_richness(fun_sperm, measures=c("Shannon"))$Shannon
@@ -67,7 +67,7 @@ sample.data.fungi <- data.frame(fun_sperm@sam_data)
 
 sample.data.fungi$Time <- factor(sample.data.fungi$Time, levels = c("0", "8", "12", "16"))
 
-####### Richness over time #######
+####### Richness #######
 fungi.richness <- sample.data.fungi %>%
   ggplot(aes(x = Sample_Type, y = richness, color = Time)) +
   facet_wrap(~Location_EC) +
@@ -88,7 +88,7 @@ fungi.richness <- sample.data.fungi %>%
   theme(legend.text = element_text(face = "italic", size = 12), legend.title = element_blank())
 fungi.richness
 
-####### funterial evenness; Figure 2a ########
+####### Fungal Evenness ########
 fungi.even <- sample.data.fungi %>%
   ggplot(aes(x = Sample_Type, y = even, color = Time)) +
   facet_wrap(~Location_EC) +
@@ -107,7 +107,137 @@ fungi.even <- sample.data.fungi %>%
   theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
 fungi.even
 
-#ggsave(filename = "even_usearch25.png", plot = fungi.even, device = "png", width = 178, height = 178, units="mm", dpi = 600)
+#ggsave(filename = "rich_usearch25.png", plot = fungi.richness, device = "png", width = 178, height = 178, units="mm", dpi = 600)
+```
+```{r Subsetting by Location}
+fun.MI <- subset_samples(fun_sperm, Location_EC == "Michigan")
+fun.ND <- subset_samples(fun_sperm, Location_EC == "N_Dakota")
+fun.PA <- subset_samples(fun_sperm, Location_EC == "Pennsylvania")
+fun.AR <- subset_samples(fun_sperm, Location_EC == "Arkansas")
+fun.TVR <- subset_samples(fun_sperm, Location_EC == "TVRec_EC")
+fun.EV <- subset_samples(fun_sperm, Location_EC == "EVSmith_EC")
+fun.Wire <- subset_samples(fun_sperm, Location_EC == "Wiregrass_EC")
+fun.Auto <- subset_samples(fun_sperm, Location_EC == "Autoclaved_Potting_Soil")
+```
+
+```{r}
+fun.Auto@sam_data$shannon <- estimate_richness(fun.Auto, measures=c("Shannon"))$Shannon
+fun.Auto@sam_data$invsimpson <- estimate_richness(fun.Auto, measures=c("InvSimpson"))$InvSimpson
+fun.Auto@sam_data$simpson <- estimate_richness(fun.Auto, measures=c("Simpson"))$Simpson
+fun.Auto@sam_data$richness <- estimate_richness(fun.Auto, measures=c("Observed"))$Observed
+fun.Auto@sam_data$even <- fun.Auto@sam_data$shannon/log(fun.Auto@sam_data$richness)
+Autosample.data.fun <- data.frame(fun.Auto@sam_data)
+Autosample.data.fun$Time <- factor(Autosample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.EV@sam_data$shannon <- estimate_richness(fun.EV, measures=c("Shannon"))$Shannon
+fun.EV@sam_data$invsimpson <- estimate_richness(fun.EV, measures=c("InvSimpson"))$InvSimpson
+fun.EV@sam_data$simpson <- estimate_richness(fun.EV, measures=c("Simpson"))$Simpson
+fun.EV@sam_data$richness <- estimate_richness(fun.EV, measures=c("Observed"))$Observed
+fun.EV@sam_data$even <- fun.EV@sam_data$shannon/log(fun.EV@sam_data$richness)
+EVsample.data.fun <- data.frame(fun.EV@sam_data)
+EVsample.data.fun$Time <- factor(EVsample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.MI@sam_data$shannon <- estimate_richness(fun.MI, measures=c("Shannon"))$Shannon
+fun.MI@sam_data$invsimpson <- estimate_richness(fun.MI, measures=c("InvSimpson"))$InvSimpson
+fun.MI@sam_data$simpson <- estimate_richness(fun.MI, measures=c("Simpson"))$Simpson
+fun.MI@sam_data$richness <- estimate_richness(fun.MI, measures=c("Observed"))$Observed
+fun.MI@sam_data$even <- fun.MI@sam_data$shannon/log(fun.MI@sam_data$richness)
+MIsample.data.fun <- data.frame(fun.MI@sam_data)
+MIsample.data.fun$Time <- factor(MIsample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.ND@sam_data$shannon <- estimate_richness(fun.ND, measures=c("Shannon"))$Shannon
+fun.ND@sam_data$invsimpson <- estimate_richness(fun.ND, measures=c("InvSimpson"))$InvSimpson
+fun.ND@sam_data$simpson <- estimate_richness(fun.ND, measures=c("Simpson"))$Simpson
+fun.ND@sam_data$richness <- estimate_richness(fun.ND, measures=c("Observed"))$Observed
+fun.ND@sam_data$even <- fun.ND@sam_data$shannon/log(fun.ND@sam_data$richness)
+NDsample.data.fun <- data.frame(fun.ND@sam_data)
+NDsample.data.fun$Time <- factor(NDsample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.Wire@sam_data$shannon <- estimate_richness(fun.Wire, measures=c("Shannon"))$Shannon
+fun.Wire@sam_data$invsimpson <- estimate_richness(fun.Wire, measures=c("InvSimpson"))$InvSimpson
+fun.Wire@sam_data$simpson <- estimate_richness(fun.Wire, measures=c("Simpson"))$Simpson
+fun.Wire@sam_data$richness <- estimate_richness(fun.Wire, measures=c("Observed"))$Observed
+fun.Wire@sam_data$even <- fun.Wire@sam_data$shannon/log(fun.Wire@sam_data$richness)
+Wiresample.data.fun <- data.frame(fun.Wire@sam_data)
+Wiresample.data.fun$Time <- factor(Wiresample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.PA@sam_data$shannon <- estimate_richness(fun.PA, measures=c("Shannon"))$Shannon
+fun.PA@sam_data$invsimpson <- estimate_richness(fun.PA, measures=c("InvSimpson"))$InvSimpson
+fun.PA@sam_data$simpson <- estimate_richness(fun.PA, measures=c("Simpson"))$Simpson
+fun.PA@sam_data$richness <- estimate_richness(fun.PA, measures=c("Observed"))$Observed
+fun.PA@sam_data$even <- fun.PA@sam_data$shannon/log(fun.PA@sam_data$richness)
+PAsample.data.fun <- data.frame(fun.PA@sam_data)
+PAsample.data.fun$Time <- factor(PAsample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.AR@sam_data$shannon <- estimate_richness(fun.AR, measures=c("Shannon"))$Shannon
+fun.AR@sam_data$invsimpson <- estimate_richness(fun.AR, measures=c("InvSimpson"))$InvSimpson
+fun.AR@sam_data$simpson <- estimate_richness(fun.AR, measures=c("Simpson"))$Simpson
+fun.AR@sam_data$richness <- estimate_richness(fun.AR, measures=c("Observed"))$Observed
+fun.AR@sam_data$even <- fun.AR@sam_data$shannon/log(fun.AR@sam_data$richness)
+ARsample.data.fun <- data.frame(fun.AR@sam_data)
+ARsample.data.fun$Time <- factor(ARsample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r}
+fun.TVR@sam_data$shannon <- estimate_richness(fun.TVR, measures=c("Shannon"))$Shannon
+fun.TVR@sam_data$invsimpson <- estimate_richness(fun.TVR, measures=c("InvSimpson"))$InvSimpson
+fun.TVR@sam_data$simpson <- estimate_richness(fun.TVR, measures=c("Simpson"))$Simpson
+fun.TVR@sam_data$richness <- estimate_richness(fun.TVR, measures=c("Observed"))$Observed
+fun.TVR@sam_data$even <- fun.TVR@sam_data$shannon/log(fun.TVR@sam_data$richness)
+TVRsample.data.fun <- data.frame(fun.TVR@sam_data)
+TVRsample.data.fun$Time <- factor(TVRsample.data.fun$Time, levels = c("0", "8", "12","16"))
+```
+
+```{r Conjoining the Dataframes}
+# Creating new columns To distinguish the dataframes
+Autosample.data.fun$Location2 <- "Autoclaved Control"
+MIsample.data.fun$Location2 <- "Michigan"
+NDsample.data.fun$Location2 <- "North Dakota"
+Wiresample.data.fun$Location2 <- "Wiregrass"
+PAsample.data.fun$Location2 <- "Pennsylvania"
+ARsample.data.fun$Location2 <- "Arkansas"
+EVsample.data.fun$Location2 <- "EV Smith"
+TVRsample.data.fun$Location2 <- "TV Rec"
+
+FAlphaCombined <- rbind.data.frame(Autosample.data.fun, 
+  MIsample.data.fun,NDsample.data.fun, Wiresample.data.fun, PAsample.data.fun, ARsample.data.fun, EVsample.data.fun, TVRsample.data.fun)
+```
+
+```{r}
+compare_means(even ~ Sample_Type, FAlphaCombined, group.by = c("Time", "Location2"))
+
+fun.even2 <- FAlphaCombined %>%
+  ggplot(aes(x = factor(Time, levels = c("0", "8", "12", "16")), y = even, color = Sample_Type)) +
+  facet_wrap(~factor(Location2), ncol = 8) +
+  #scale_y_continuous(limits = c(0.45, 0.9), breaks = seq(0.5, 0.9, 0.1)) +
+  stat_compare_means(aes(group = Sample_Type, label = ..p.signif..),
+                     method = "t.test", hide.ns = TRUE, show.legend = FALSE) +
+  geom_boxplot(position = position_dodge2(0.85, preserve = "single")) + 
+  geom_point(position=position_jitterdodge(0.05)) +
+  scale_fill_manual(values = cbbPalette ) +
+  color_palette(cbbPalette) +
+  #stat_summary(fun.y=mean,geom="line", aes(group = Sample_Type)) +
+  #stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.5) +
+  ylab("Pielou's evenness") +
+  xlab("Hours post planting")+
+  #scale_color_manual(values=cbbPalette, name = "", labels = c("Planting", "17hrs", "V2")) +  
+  theme_classic() +
+  theme(legend.text = element_text(face = "italic", size = 8), legend.title = element_blank())
+fun.even2
+
+#ggsave(filename = "even_all_dad.png", plot = fun.even2, device = "png", width = 30, height = 10, units="cm", dpi = 600)
 ```
 
 # Beta Diversity #
@@ -177,7 +307,7 @@ beta <- ggarrange(global.jac.fungi,
 
 beta
 
-#ggsave(filename = "beta_usearch25.png", plot = beta, device = "png", width = 250, height = 150, units="mm", dpi = 600)
+ggsave(filename = "beta_usearch25.png", plot = beta, device = "png", width = 250, height = 150, units="mm", dpi = 600, bg = "white")
 ```
 
 # Looking at separate times
@@ -274,7 +404,7 @@ pcoa.bray.8hrs.new <- ggplot(bray.8.vectors2, aes(x = Axis.1, y = Axis.2, fill =
   xlab(paste("PcoA1 -", variation.axis1.8.bray, "%")) + 
   ylab(paste("PcoA2 -", variation.axis2.8.bray, "%")) +
   guides(fill = guide_legend(override.aes = list(shape = 21))) +
-  ggtitle(paste("8 Hours Postplanting")) +
+  ggtitle(paste("8 hours post planting")) +
   theme_bw() +
   theme(legend.position = "bottom",
         legend.title = element_blank(),
@@ -327,7 +457,7 @@ pcoa.bray.12hrs.new <- ggplot(bray.12.vectors2, aes(x = Axis.1, y = Axis.2, fill
   xlab(paste("PcoA1 -", variation.axis1.12.bray, "%")) + 
   ylab(paste("PcoA2 -", variation.axis2.12.bray, "%")) +
   guides(fill = guide_legend(override.aes = list(shape = 21))) +
-  ggtitle(paste("12 hrs post planting")) +
+  ggtitle(paste("12 hours post planting")) +
   theme_bw() +
   theme(legend.position = "bottom",
         legend.title = element_blank(),
@@ -381,7 +511,7 @@ pcoa.bray.16hrs.new <- ggplot(bray.16.vectors2, aes(x = Axis.1, y = Axis.2, fill
   xlab(paste("PcoA1 -", variation.axis1.16.bray, "%")) + 
   ylab(paste("PcoA2 -", variation.axis2.16.bray, "%")) +
   guides(fill = guide_legend(override.aes = list(shape = 21))) +
-  ggtitle(paste("16 hrs post planting")) +
+  ggtitle(paste("16 hours post planting")) +
   theme_bw() +
   theme(legend.position = "bottom",
         legend.title = element_blank(),
@@ -621,6 +751,8 @@ BetaCombined <- ggpubr::ggarrange(pcoa.bray.0hrs.new,
 BetaCombined
 
 #ggsave(filename = "Fungi_Beta.png", plot = BetaCombined, device = "png", width = 300, height = 200, units="mm", dpi = 600)
+
+ggsave(filename = "Fungi_Beta.png", plot = beta2, device = "png", width = 200, height = 200, units="mm", dpi = 600,bg="white")
 ```
 
 # PERMANOVA #

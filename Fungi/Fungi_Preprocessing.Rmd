@@ -34,9 +34,11 @@ tol.cbb <- c("#332288", "#117733", "#44AA99", "#88CCEE", "#DDCC77", "#CC6677", "
 
 # Extra colors 
 library(RColorBrewer)
-n <- 40
+n <- 120
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+color2 = grDevices::colors()[grep('gr(a|e)y', grDevices::colors(), invert = T)]
+col_vector2 = sample(color2, n)
 ```
 
 ## Input Files
@@ -55,7 +57,7 @@ otu_fun <- otu_fun[,-1]
 OTU.fun <- phyloseq::otu_table(otu_fun, taxa_are_rows = TRUE)
 any(is.na(otu_fun)) # no NA in the OTU table
 ###IN ORDER TO KNIT THIS THE LINES ABOVE ARE COMMENTED OUT FILE IS COMPRESSED ###
-# Taxonomy #
+# Constax Taxonomy #
 taxonomy.fun <- read.csv("Usearch_Merged_Analysis/constax_taxonomy.txt", header = TRUE, sep ="\t")
 taxonomy.fun[, "Kingdom"] <- as.factor(gsub("_1", "", taxonomy.fun[, "Kingdom"]))
 taxonomy.fun[, "Phylum"] <- as.factor(gsub("_1", "", taxonomy.fun[, "Phylum"]))
@@ -67,6 +69,11 @@ taxonomy.fun[, "Species"] <- as.factor(gsub("_1", "", taxonomy.fun[, "Species"])
 
 rownames(taxonomy.fun) <- taxonomy.fun$OTU_ID
 TAX.fun <- phyloseq::tax_table(as.matrix(taxonomy.fun))
+
+#Compare taxonomy assignment algorithms NBC-dada2
+taxonomy.fun.dada <- read.csv("Usearch_Merged_Analysis/NBC_SINTAX_comb.csv", header = TRUE)
+rownames(taxonomy.fun.dada) <- taxonomy.fun.dada$OTU
+TAX.dad <- phyloseq::tax_table(as.matrix(taxonomy.fun.dada))
 
 
 FASTA.fun <- readDNAStringSet("Usearch_Merged_Analysis/otus.fasta", format="fasta", seek.first.rec=TRUE, use.names=TRUE)
@@ -126,7 +133,7 @@ Usearch Merged Reads Decontamination:
 
 
 # Taxonomy filtering #
-```{r Filtering Taxa that are not Bacteria}
+```{r Filtering Taxa that are not Fungi}
 # remove OTUs that are not Fungi 
 fun_filt <- fun_f_filt %>% 
   phyloseq::subset_taxa(Kingdom == "Fungi")
@@ -186,7 +193,7 @@ sample.sums <- data.frame(sample_sums(fun_sperm))
 # Read Depth Analysis
 ```{r Read Depth Analysis}
 # Restore the object
-#bac_sperm <- readRDS(file = "Bacteria_RDS/Spermosphere_bac_clean.rds")
+#fun_sperm <- readRDS(file = "Fungi_RDS/Spermosphere_Fungi_clean.rds")
 
 ###### READS PER SAMPLE ######
 sample.sums <- data.frame(sample_sums(fun_sperm))
@@ -264,7 +271,7 @@ fun.css.norm <- phyloseq::phyloseq(norm.fun.OTU, FASTA.fun, SAMP.fun, TAX.fun) #
 # ABOVE LINE IS COMMENTED OUT BECAUSE THE FILE IS ZIPPED IN A FILE #
 
 # Restore the object
-#fun.css.norm <- readRDS(file = "Bacteria_RDS/Spermosphere_CSS.rds")
+#fun.css.norm <- readRDS(file = "Fungi_RDS/Spermosphere_Fungi_CSS.rds")
 ```
 
 # Further Filtering #
@@ -341,7 +348,7 @@ ReformatTaxonomy <- function(dataframe){
   taxa_table[taxa_table=="Unidentified"]<- NA
   taxa_table[taxa_table==""]<- NA
   taxa_table[taxa_table=="Incertae sedis"]<- NA
-  taxa_table[taxa_table=="uncultured bacterium"]<- NA
+  taxa_table[taxa_table=="uncultured fungi"]<- NA
   #to remove species that aready have sp
   taxa_table$Species <- 
     gsub(" sp ", "", taxa_table$Species)
@@ -376,14 +383,14 @@ Only run on file once!
 
 Top taxa in the Spermosphere samples
 ```{r}
-fun.css.norm2 <- fun_psq %>%
+fun.css.norm2 <- fun.pruned %>%
   subset_samples(Sample_Type == "Spermosphere") %>%
   transform_sample_counts(function(x) {x/sum(x)} )
 
 topx.fungi <- top_taxa(fun.css.norm2, n = 40)
 
 fun.composition <- fun.css.norm2 %>%
-  subset_taxa(OTU_ID %in% topx.fungi) %>%
+  subset_taxa(OTU %in% topx.fungi) %>%
   microbiome::transform("compositional") %>%
   psmelt() %>% 
   group_by(Location_EC, Time, Label) %>%
@@ -402,7 +409,7 @@ fun.composition <- fun.css.norm2 %>%
         axis.title = element_text(size = 12), 
         strip.text = element_text(size = 12), plot.title = element_text(size = 12),
         legend.text = element_text(face = "italic", size = 12), 
-        legend.title = element_blank()#,plot.margin = margin(t = 60)
+        legend.title = element_blank(),plot.margin = margin(l = 25)
         ) +
   facet_wrap(~Time)
 fun.composition
